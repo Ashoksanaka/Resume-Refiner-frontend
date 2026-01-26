@@ -1,0 +1,164 @@
+/* Resume Viewer - Modern Dark Theme */
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 650px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.loadingContainer,
+.errorContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 450px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+}
+
+.errorContainer {
+    padding: var(--spacing-xl);
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    text-align: center;
+}
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.toolbarTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.toolbarTitle::before {
+    content: '📄';
+    font-size: 18px;
+}
+
+.expiryInfo {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 6px 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+}
+
+.expiryInfo::before {
+    content: '⏱';
+    font-size: 14px;
+}
+
+.preview {
+    flex: 1;
+    background: linear-gradient(135deg, #1a1a2e, #16162a);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Add a subtle pattern to the preview background */
+.preview::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.03) 1px, transparent 0);
+    background-size: 20px 20px;
+    pointer-events: none;
+}
+
+.iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+    position: relative;
+    z-index: 1;
+}
+
+/* Download section */
+.downloadSection {
+    padding: var(--spacing-lg);
+    background: var(--color-surface-elevated);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    justify-content: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        height: 550px;
+        border-radius: var(--radius-lg);
+    }
+    
+    .toolbar {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+    
+    .loadingContainer,
+    .errorContainer {
+        height: 350px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        height: 450px;
+        border-radius: var(--radius-md);
+    }
+    
+    .toolbar {
+        padding: var(--spacing-sm);
+    }
+    
+    .toolbarTitle {
+        font-size: 13px;
+    }
+    
+    .expiryInfo {
+        font-size: 12px;
+        padding: 4px 10px;
+    }
+    
+    .loadingContainer,
+    .errorContainer {
+        height: 280px;
+    }
+}

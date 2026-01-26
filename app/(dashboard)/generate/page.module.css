@@ -1,0 +1,393 @@
+/* Generate Page - Modern Dark Theme */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.header {
+    margin-bottom: var(--spacing-xl);
+    text-align: center;
+}
+
+.header h1 {
+    margin-bottom: var(--spacing-sm);
+    background: linear-gradient(135deg, var(--color-text), var(--color-primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Progress Steps */
+.progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg) 0;
+    gap: var(--spacing-md);
+}
+
+.progressStep {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    position: relative;
+}
+
+.progressNumber {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 2px solid var(--color-border);
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    transition: all var(--transition-base);
+    position: relative;
+    z-index: 1;
+}
+
+.progressLabel {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    transition: color var(--transition-base);
+}
+
+.progressStep.active .progressNumber {
+    border-color: var(--color-primary);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    color: white;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+    }
+    50% {
+        box-shadow: 0 4px 30px rgba(99, 102, 241, 0.6);
+    }
+}
+
+.progressStep.active .progressLabel {
+    color: var(--color-primary);
+}
+
+.progressStep.completed .progressNumber {
+    border-color: var(--color-success);
+    background: linear-gradient(135deg, var(--color-success), #16a34a);
+    color: white;
+    box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
+}
+
+.progressStep.completed .progressNumber::after {
+    content: '✓';
+    font-size: 18px;
+}
+
+.progressLine {
+    width: 80px;
+    height: 3px;
+    background: var(--color-border);
+    margin: 0 var(--spacing-md);
+    margin-bottom: 24px;
+    border-radius: var(--radius-full);
+    position: relative;
+    overflow: hidden;
+}
+
+.progressLine::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--color-success), var(--color-primary));
+    transition: width var(--transition-slow);
+}
+
+.progressStep.completed + .progressLine::after {
+    width: 100%;
+}
+
+/* Form */
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+    padding-top: var(--spacing-sm);
+}
+
+/* Template-related CSS removed - template selection feature has been removed */
+
+.selectedBadge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5);
+    animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Generating */
+.generating {
+    text-align: center;
+    padding: var(--spacing-3xl) 0;
+}
+
+.generating h2 {
+    margin: var(--spacing-xl) 0 var(--spacing-sm);
+    color: var(--color-text);
+}
+
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xl);
+    padding: 10px 24px;
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    border-radius: var(--radius-full);
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: capitalize;
+    border: 1px solid var(--color-border);
+}
+
+.statusBadge::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--color-primary);
+    border-radius: 50%;
+    animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+/* Complete */
+.complete {
+    text-align: center;
+    padding: var(--spacing-2xl) 0;
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+.complete h2 {
+    margin-bottom: var(--spacing-md);
+    color: var(--color-text);
+}
+
+.complete .actions {
+    justify-content: center;
+    margin-top: var(--spacing-xl);
+}
+
+.successIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto var(--spacing-xl);
+    background: linear-gradient(135deg, var(--color-success), #16a34a);
+    color: white;
+    font-size: 50px;
+    font-weight: bold;
+    border-radius: 50%;
+    box-shadow: 0 8px 40px rgba(34, 197, 94, 0.5);
+    animation: successPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes successPop {
+    0% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.errorIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto var(--spacing-xl);
+    background: linear-gradient(135deg, var(--color-error), #dc2626);
+    color: white;
+    font-size: 50px;
+    font-weight: bold;
+    border-radius: 50%;
+    box-shadow: 0 8px 40px rgba(239, 68, 68, 0.5);
+    animation: errorShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+}
+
+@keyframes errorShake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-4px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(4px);
+    }
+}
+
+.expiryNote {
+    margin-top: var(--spacing-xl);
+    font-size: 13px;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+}
+
+.expiryNote::before {
+    content: '⏱';
+}
+
+.previewContainer {
+    margin: var(--spacing-xl) 0;
+    width: 100%;
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .container {
+        max-width: 1200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        max-width: 100%;
+    }
+    
+    .header h1 {
+        font-size: 1.75rem;
+    }
+    
+    .progress {
+        padding: var(--spacing-md) 0;
+    }
+    
+    .progressNumber {
+        width: 38px;
+        height: 38px;
+        font-size: 14px;
+    }
+    
+    .progressLabel {
+        font-size: 11px;
+    }
+    
+    .progressLine {
+        width: 50px;
+        margin: 0 var(--spacing-sm);
+        margin-bottom: 20px;
+    }
+    
+    
+    .actions {
+        flex-direction: column;
+    }
+    
+    .actions > * {
+        width: 100%;
+    }
+    
+    .successIcon,
+    .errorIcon {
+        width: 80px;
+        height: 80px;
+        font-size: 40px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .progress {
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+    }
+    
+    .progressLine {
+        width: 30px;
+    }
+    
+    .progressNumber {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+    }
+    
+    .progressLabel {
+        font-size: 10px;
+    }
+    
+}

@@ -1,0 +1,153 @@
+/* Generation Progress - Modern Dark Theme */
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-3xl) var(--spacing-lg);
+    text-align: center;
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Custom animated spinner - REMOVED: Now using GeneratingLoader component */
+/* The spinner was created using ::before and ::after pseudo-elements */
+/* but we now use the GeneratingLoader component instead */
+
+.container h2 {
+    margin: var(--spacing-lg) 0 var(--spacing-sm);
+    color: var(--color-text);
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, var(--color-text), var(--color-primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.status {
+    font-size: 16px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-xl);
+    line-height: 1.5;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 12px 28px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--color-border);
+    color: var(--color-primary);
+    border-radius: var(--radius-full);
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: capitalize;
+    box-shadow: var(--shadow-md);
+}
+
+.badge::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background: var(--color-primary);
+    border-radius: 50%;
+    animation: pulse 1.2s ease-in-out infinite;
+    box-shadow: 0 0 10px var(--color-primary-glow);
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.4;
+        transform: scale(0.8);
+    }
+}
+
+/* Progress Steps */
+.steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    min-width: 280px;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) 0;
+    font-size: 14px;
+    color: var(--color-text-muted);
+}
+
+.step.active {
+    color: var(--color-primary);
+}
+
+.step.completed {
+    color: var(--color-success);
+}
+
+.stepIcon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 12px;
+    background: var(--color-surface-hover);
+    transition: all var(--transition-fast);
+}
+
+.step.active .stepIcon {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.step.completed .stepIcon {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding: var(--spacing-2xl) var(--spacing-md);
+    }
+    
+    .container h2 {
+        font-size: 1.25rem;
+    }
+    
+    .status {
+        font-size: 14px;
+    }
+    
+    .badge {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+}
