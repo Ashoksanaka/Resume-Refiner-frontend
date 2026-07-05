@@ -2,21 +2,19 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useClerk, useUser } from '@clerk/nextjs';
+import { Settings, LogOut, ChevronDown } from 'lucide-react';
 
 export const ProfileMenu: React.FC = () => {
-    const { user, logout } = useAuth();
-    const router = useRouter();
+    const { user } = useUser();
+    const { signOut } = useClerk();
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
     const toggleMenu = () => setIsOpen(!isOpen);
 
     const handleLogout = async () => {
-        await logout();
-        router.push('/login');
+        await signOut({ redirectUrl: '/sign-in' });
     };
 
     useEffect(() => {
@@ -45,9 +43,8 @@ export const ProfileMenu: React.FC = () => {
 
     if (!user) return null;
 
-    const initials = user.email
-        ? user.email.substring(0, 2).toUpperCase()
-        : 'U';
+    const email = user.primaryEmailAddress?.emailAddress || '';
+    const initials = email ? email.substring(0, 2).toUpperCase() : 'U';
 
     return (
         <div className="relative" ref={menuRef}>
@@ -59,8 +56,8 @@ export const ProfileMenu: React.FC = () => {
                 aria-label="User profile menu"
             >
                 <div className="flex items-center gap-3 px-2">
-                    <span className="hidden md:block text-sm font-medium text-text-secondary truncate max-w-[150px]" title={user.email || ''}>
-                        {user.email}
+                    <span className="hidden md:block text-sm font-medium text-text-secondary truncate max-w-[150px]" title={email}>
+                        {email}
                     </span>
                     <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border border-border">
                         {initials}
@@ -77,7 +74,7 @@ export const ProfileMenu: React.FC = () => {
                 >
                     <div className="px-4 py-2 border-b border-border md:hidden">
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
-                        <p className="text-sm truncate font-medium text-foreground">{user.email}</p>
+                        <p className="text-sm truncate font-medium text-foreground">{email}</p>
                     </div>
 
                     <Link

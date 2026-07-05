@@ -1,0 +1,39 @@
+.card {
+    padding: 1.5rem;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.success {
+    color: hsl(var(--success, 142 76% 36%));
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.fieldset:disabled {
+    opacity: 0.85;
+}
+
+.content {
+    min-width: 0;
+}

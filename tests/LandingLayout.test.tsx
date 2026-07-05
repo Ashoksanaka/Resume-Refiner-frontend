@@ -3,6 +3,11 @@ import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import Page from '../app/page';
 
+jest.mock('@clerk/nextjs', () => ({
+    useAuth: jest.fn(() => ({ isLoaded: true, isSignedIn: false })),
+    UserButton: () => null,
+}));
+
 // Mock Next.js components and hooks
 jest.mock('next/navigation', () => ({
     usePathname: jest.fn(() => '/'),
@@ -43,7 +48,7 @@ describe('Landing Page Layout', () => {
         const nav = screen.getByRole('navigation');
         expect(nav).toBeInTheDocument();
         expect(screen.getByText('Login')).toBeInTheDocument();
-        expect(screen.getByText('Get Started')).toBeInTheDocument();
+        expect(screen.getByText('Signup')).toBeInTheDocument();
 
         // SideMenu should not be in the DOM
         const sideMenu = screen.queryByRole('complementary') || screen.queryByTestId('side-menu');
@@ -60,7 +65,7 @@ describe('Landing Page Layout', () => {
 
         // Landing page has its own navigation
         expect(screen.getByText('Login')).toBeInTheDocument();
-        expect(screen.getByText('Get Started')).toBeInTheDocument();
+        expect(screen.getByText('Signup')).toBeInTheDocument();
 
         // No SideMenu elements should be present
         expect(screen.queryByText('Profile')).not.toBeInTheDocument();

@@ -2,7 +2,9 @@
 .container {
     display: flex;
     flex-direction: column;
-    height: 650px;
+    width: 100%;
+    max-width: 850px;
+    margin: 0 auto;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
@@ -22,15 +24,37 @@
     }
 }
 
+.pageFrame {
+    width: 100%;
+    max-width: 800px;
+    aspect-ratio: 210 / 297;
+    background: #fff;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+}
+
 .loadingContainer,
 .errorContainer {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 450px;
-    background: var(--color-surface);
+    width: 100%;
+    max-width: 850px;
+    margin: 0 auto;
+    padding: var(--spacing-xl);
+    background: linear-gradient(135deg, #1a1a2e, #16162a);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
+}
+
+.loadingContainer .pageFrame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
 }
 
 .errorContainer {
@@ -83,7 +107,7 @@
 }
 
 .preview {
-    flex: 1;
+    padding: var(--spacing-xl);
     background: linear-gradient(135deg, #1a1a2e, #16162a);
     position: relative;
     display: flex;
@@ -106,8 +130,6 @@
     height: 100%;
     border: none;
     display: block;
-    position: relative;
-    z-index: 1;
 }
 
 /* Download section */
@@ -122,43 +144,49 @@
 /* Responsive */
 @media (max-width: 768px) {
     .container {
-        height: 550px;
         border-radius: var(--radius-lg);
     }
-    
+
+    .preview {
+        padding: var(--spacing-lg);
+    }
+
     .toolbar {
         flex-direction: column;
         gap: var(--spacing-sm);
         padding: var(--spacing-sm) var(--spacing-md);
     }
-    
+
     .loadingContainer,
     .errorContainer {
-        height: 350px;
+        padding: var(--spacing-lg);
     }
 }
 
 @media (max-width: 480px) {
     .container {
-        height: 450px;
         border-radius: var(--radius-md);
     }
-    
+
+    .preview {
+        padding: var(--spacing-md);
+    }
+
     .toolbar {
         padding: var(--spacing-sm);
     }
-    
+
     .toolbarTitle {
         font-size: 13px;
     }
-    
+
     .expiryInfo {
         font-size: 12px;
         padding: 4px 10px;
     }
-    
+
     .loadingContainer,
     .errorContainer {
-        height: 280px;
+        padding: var(--spacing-md);
     }
 }

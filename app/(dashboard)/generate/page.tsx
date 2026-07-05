@@ -1,25 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
     jobDescriptionApi,
     resumeApi,
+    profileApi,
     ApiClientError,
 } from '@/services/apiClient';
 import {
     JobDescription,
+    Profile,
     ResumeGenerationRequest,
 } from '@/types/api';
 import { FilePlus } from 'lucide-react';
 import {
     Button,
+    Input,
     Textarea,
     Card,
     ErrorDisplay,
 } from '@/components/ui';
 import { GenerationProgress } from '@/components/generate/GenerationProgress';
+import { SectionSelector } from '@/components/generate/SectionSelector';
 import { ResumeViewer } from '@/components/generate/ResumeViewer';
+import {
+    ProfileSectionKey,
+    getDefaultSelectedSections,
+} from '@/lib/constants/profileSections';
+import { migrateProfile } from '@/lib/validation/profileSections';
 import styles from './page.module.css';
 
 // -------------------------------------------------
@@ -28,51 +37,90 @@ import styles from './page.module.css';
 
 type Step = 'jd' | 'generating' | 'complete';
 
-// Default template ID - users can no longer select templates
 const DEFAULT_TEMPLATE_ID = 'main';
+const MIN_JD_LENGTH = 50;
 
 // -------------------------------------------------
 // Main Component
 // -------------------------------------------------
 
 export default function GeneratePage() {
-    // Step state
     const [step, setStep] = useState<Step>('jd');
 
-    // JD state
+    const [roleName, setRoleName] = useState('');
     const [jdText, setJdText] = useState('');
     const [jobDescription, setJobDescription] = useState<JobDescription | null>(null);
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [selectedSections, setSelectedSections] = useState<Set<ProfileSectionKey>>(new Set());
+    const [sectionsInitialized, setSectionsInitialized] = useState(false);
 
-    // Generation state
     const [generation, setGeneration] = useState<ResumeGenerationRequest | null>(null);
-    const [idempotencyKey] = useState(() => uuidv4());
+    const idempotencyKeyRef = useRef<string | null>(null);
 
-    // General state
     const [isLoading, setIsLoading] = useState(false);
+    const [isStopping, setIsStopping] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
-    // -------------------------------------------------
-    // Submit Job Description & Generate Resume
-    // -------------------------------------------------
+    const showSectionSelector = jdText.trim().length >= MIN_JD_LENGTH && profile !== null;
 
-    const handleSubmitJD = async () => {
-        if (!jdText.trim()) return;
+    useEffect(() => {
+        const loadProfile = async () => {
+            try {
+                const data = await profileApi.get();
+                const migrated = migrateProfile(data);
+                setProfile(migrated);
+            } catch (err) {
+                console.error('Failed to load profile for section selection:', err);
+            }
+        };
+        loadProfile();
+    }, []);
+
+    useEffect(() => {
+        if (!profile || !showSectionSelector || sectionsInitialized) return;
+        setSelectedSections(getDefaultSelectedSections(profile));
+        setSectionsInitialized(true);
+    }, [profile, showSectionSelector, sectionsInitialized]);
+
+    useEffect(() => {
+        if (jdText.trim().length < MIN_JD_LENGTH) {
+            setSectionsInitialized(false);
+            setSelectedSections(new Set());
+        }
+    }, [jdText]);
+
+    const canGenerate =
+        roleName.trim().length >= 2 &&
+        jdText.trim().length >= MIN_JD_LENGTH &&
+        selectedSections.size > 0;
+
+    const handleGenerate = async () => {
+        if (!canGenerate) return;
 
         setError(null);
         setIsLoading(true);
 
+        if (!idempotencyKeyRef.current) {
+            idempotencyKeyRef.current = uuidv4();
+        }
+        const requestIdempotencyKey = idempotencyKeyRef.current;
+
         try {
-            const jd = await jobDescriptionApi.submit({ text: jdText });
+            const jd = await jobDescriptionApi.submit({
+                role_name: roleName.trim(),
+                text: jdText.trim(),
+            });
             setJobDescription(jd);
 
-            // Immediately trigger resume generation with default template
             const gen = await resumeApi.trigger(
                 {
                     job_description_id: jd.id,
                     template_id: DEFAULT_TEMPLATE_ID,
+                    sections: Array.from(selectedSections),
                 },
-                idempotencyKey
+                requestIdempotencyKey
             );
+            idempotencyKeyRef.current = null;
             setGeneration(gen);
             setStep('generating');
         } catch (err) {
@@ -82,15 +130,11 @@ export default function GeneratePage() {
         }
     };
 
-    // -------------------------------------------------
-    // Step 3: Poll for Status
-    // -------------------------------------------------
-
     useEffect(() => {
         if (step !== 'generating' || !generation) return;
 
         let isCancelled = false;
-        const pollInterval = 2000; // 2 seconds
+        const pollInterval = 2000;
 
         const poll = async () => {
             try {
@@ -100,10 +144,13 @@ export default function GeneratePage() {
 
                 setGeneration(status);
 
-                if (status.status === 'success' || status.status === 'failed') {
+                if (
+                    status.status === 'success' ||
+                    status.status === 'failed' ||
+                    status.status === 'cancelled'
+                ) {
                     setStep('complete');
                 } else {
-                    // Continue polling
                     setTimeout(poll, pollInterval);
                 }
             } catch (err) {
@@ -113,7 +160,6 @@ export default function GeneratePage() {
                     setError(err);
                     setStep('complete');
                 } else {
-                    // Retry on transient errors
                     setTimeout(poll, pollInterval);
                 }
             }
@@ -124,34 +170,46 @@ export default function GeneratePage() {
         return () => {
             isCancelled = true;
         };
-    }, [step, generation]);
+    }, [step, generation?.id]);
 
-    // -------------------------------------------------
-    // Reset to start over
-    // -------------------------------------------------
+    const handleStopGeneration = async () => {
+        if (!generation) return;
+
+        setIsStopping(true);
+        setError(null);
+
+        try {
+            const cancelled = await resumeApi.cancel(generation.id);
+            setGeneration(cancelled);
+            setStep('complete');
+        } catch (err) {
+            setError(err as Error);
+        } finally {
+            setIsStopping(false);
+        }
+    };
 
     const handleStartOver = () => {
+        idempotencyKeyRef.current = null;
         setStep('jd');
+        setRoleName('');
         setJdText('');
         setJobDescription(null);
         setGeneration(null);
+        setSelectedSections(new Set());
+        setSectionsInitialized(false);
         setError(null);
     };
-
-    // -------------------------------------------------
-    // Render
-    // -------------------------------------------------
 
     return (
         <div className={styles.container}>
             <div className={styles.header}>
                 <h1>Generate Resume</h1>
-                <p className="text-muted">
-                    Paste a job description and let AI customize your resume for the role.
+                <p className="text-muted" style={{ color: 'white' }}>
+                    Enter the role, paste a job description, and choose profile sections for AI customization.
                 </p>
             </div>
 
-            {/* Progress Steps */}
             <div className={styles.progress}>
                 <div className={`${styles.progressStep} ${step === 'jd' ? styles.active : ''} ${['generating', 'complete'].includes(step) ? styles.completed : ''}`}>
                     <span className={styles.progressNumber}>1</span>
@@ -168,14 +226,21 @@ export default function GeneratePage() {
                 <ErrorDisplay
                     error={error}
                     onDismiss={() => setError(null)}
-                    onRetry={step === 'jd' ? handleSubmitJD : undefined}
+                    onRetry={step === 'jd' ? handleGenerate : undefined}
                 />
             )}
 
-            {/* Step 1: Job Description */}
             {step === 'jd' && (
-                <Card title="Paste Job Description" subtitle="The AI will analyze the requirements and customize your resume">
+                <Card title="Prepare Your Application" subtitle="Tell us the role and paste the job description">
                     <div className={styles.form}>
+                        <Input
+                            label="Role name"
+                            value={roleName}
+                            onChange={(e) => setRoleName(e.target.value)}
+                            placeholder="e.g. Senior Software Engineer"
+                            maxLength={200}
+                            required
+                        />
                         <Textarea
                             label="Job Description"
                             value={jdText}
@@ -186,12 +251,19 @@ export default function GeneratePage() {
                             rows={12}
                             required
                         />
+                        {showSectionSelector && profile && (
+                            <SectionSelector
+                                profile={profile}
+                                selectedSections={selectedSections}
+                                onChange={setSelectedSections}
+                            />
+                        )}
                         <div className={styles.actions}>
                             <Button
                                 id="generate-resume-btn"
-                                onClick={handleSubmitJD}
+                                onClick={handleGenerate}
                                 isLoading={isLoading}
-                                disabled={!jdText.trim()}
+                                disabled={!canGenerate}
                             >
                                 Generate Resume
                             </Button>
@@ -200,14 +272,17 @@ export default function GeneratePage() {
                 </Card>
             )}
 
-            {/* Step 2: Generating */}
             {step === 'generating' && (
                 <Card>
-                    <GenerationProgress generation={generation} />
+                    <GenerationProgress
+                        generation={generation}
+                        roleName={roleName.trim() || jobDescription?.role_name}
+                        onStop={handleStopGeneration}
+                        isStopping={isStopping}
+                    />
                 </Card>
             )}
 
-            {/* Step 3: Complete */}
             {step === 'complete' && generation && (
                 <Card>
                     <div className={styles.complete}>
@@ -217,6 +292,7 @@ export default function GeneratePage() {
                                 <h2>Your Resume is Ready!</h2>
                                 <div className={styles.previewContainer}>
                                     <ResumeViewer
+                                        key={generation.id}
                                         generationId={generation.id}
                                         expiresAt={generation.expires_at}
                                     />
@@ -225,6 +301,17 @@ export default function GeneratePage() {
                                     <Button variant="secondary" onClick={handleStartOver}>
                                         Generate Another
                                     </Button>
+                                </div>
+                            </>
+                        ) : generation.status === 'cancelled' ? (
+                            <>
+                                <div className={styles.errorIcon}>✕</div>
+                                <h2>Generation Cancelled</h2>
+                                <p className="text-muted">
+                                    {generation.failure_reason || 'Resume generation was stopped.'}
+                                </p>
+                                <div className={styles.actions}>
+                                    <Button onClick={handleStartOver}>Start Over</Button>
                                 </div>
                             </>
                         ) : (
@@ -242,13 +329,13 @@ export default function GeneratePage() {
                     </div>
                 </Card>
             )}
-            {/* FAB for Mobile */}
+
             {step === 'jd' && (
                 <button
                     className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center z-40 hover:scale-105 active:scale-95 transition-transform"
                     aria-label="Generate Resume"
-                    onClick={handleSubmitJD}
-                    disabled={!jdText.trim() || isLoading}
+                    onClick={handleGenerate}
+                    disabled={!canGenerate || isLoading}
                 >
                     <FilePlus className="w-6 h-6" />
                 </button>

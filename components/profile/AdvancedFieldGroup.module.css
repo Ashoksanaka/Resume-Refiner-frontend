@@ -1,0 +1,27 @@
+.wrapper {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.toggle {
+    width: 100%;
+    text-align: left;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+}
+
+.toggle:hover {
+    background: var(--color-surface-hover);
+}
+
+.content {
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}

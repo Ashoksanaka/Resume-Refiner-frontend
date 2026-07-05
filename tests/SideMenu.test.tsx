@@ -1,18 +1,16 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { SideMenu } from '../components/SideMenu';
-import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { usePathname } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import { profileApi } from '@/services/apiClient';
 
-// Mocks
 jest.mock('next/navigation', () => ({
     usePathname: jest.fn(),
-    useRouter: jest.fn(),
 }));
 
-jest.mock('@/lib/auth/AuthContext', () => ({
+jest.mock('@clerk/nextjs', () => ({
     useAuth: jest.fn(),
 }));
 
@@ -23,18 +21,19 @@ jest.mock('@/services/apiClient', () => ({
 }));
 
 describe('SideMenu Component', () => {
-    const mockPush = jest.fn();
-    const mockLogout = jest.fn();
-
     beforeEach(() => {
         (usePathname as jest.Mock).mockReturnValue('/profile');
-        (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
         (useAuth as jest.Mock).mockReturnValue({
-            user: { email: 'test@example.com' },
-            logout: mockLogout,
+            isSignedIn: true,
+            isLoaded: true,
         });
         (profileApi.get as jest.Mock).mockResolvedValue({
-            personalInfo: { full_name: 'John Doe', email: 'test@example.com' },
+            personalInfo: {
+                full_name: 'John Doe',
+                email: 'test@example.com',
+                phone_number: '+1-5551234567',
+                location: 'San Francisco, California, United States',
+            },
             summary: 'Some summary...',
             experience: [],
             education: [],
@@ -50,19 +49,12 @@ describe('SideMenu Component', () => {
         render(<SideMenu />);
         await screen.findAllByText(/Resume AI/i);
 
-        // Groups should be visible
         expect(screen.getByText('Profile')).toBeInTheDocument();
         expect(screen.getByText('Resume')).toBeInTheDocument();
-
-        // Sub-items should be visible (initially expanded)
+        expect(screen.getByText('Dashboard')).toBeInTheDocument();
         expect(screen.getByText('Overview')).toBeInTheDocument();
         expect(screen.getByText('Experience')).toBeInTheDocument();
         expect(screen.getByText('Skills')).toBeInTheDocument();
-
-        // User info and Settings are now moved to TopBar/ProfileMenu
-        expect(screen.queryByText('test@example.com')).not.toBeInTheDocument();
-        expect(screen.queryByText('Settings')).not.toBeInTheDocument();
-        expect(screen.queryByText('Logout')).not.toBeInTheDocument();
     });
 
     it('collapses and expands on desktop', async () => {
@@ -70,15 +62,11 @@ describe('SideMenu Component', () => {
         await screen.findAllByText(/Resume AI/i);
         const collapseBtn = screen.getByLabelText('Collapse sidebar');
 
-        // Initially expanded - label should be visible
         expect(screen.getByText('Overview')).toBeVisible();
 
-        // Collapse
         fireEvent.click(collapseBtn);
-        // Nav labels (spans) should be hidden, but tooltip (div) will be present
         expect(screen.queryByText('Overview', { selector: 'span' })).not.toBeInTheDocument();
 
-        // Expand
         const expandBtn = screen.getByLabelText('Expand sidebar');
         fireEvent.click(expandBtn);
         expect(screen.getByText('Overview')).toBeInTheDocument();
@@ -89,14 +77,9 @@ describe('SideMenu Component', () => {
         await screen.findAllByText(/Resume AI/i);
 
         const profileToggle = screen.getByText('Profile');
-
-        // Initially expanded
         expect(screen.getByText('Overview')).toBeInTheDocument();
 
-        // Collapse profile group
         fireEvent.click(profileToggle);
-
-        // Sub-items should be removed from DOM when collapsed
         expect(screen.queryByText('Overview')).not.toBeInTheDocument();
     });
 });

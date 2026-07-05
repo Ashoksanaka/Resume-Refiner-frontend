@@ -5,3 +5,5 @@ export { Card } from './Card';
 export { Loading } from './Loading';
 export { GeneratingLoader } from './GeneratingLoader';
 export { ErrorDisplay } from './ErrorDisplay';
+export { Select } from './Select';
+export { ConfirmDialog } from './ConfirmDialog';

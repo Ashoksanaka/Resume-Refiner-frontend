@@ -2,7 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { isEducationSectionComplete } from '@/lib/validation/education';
+import {
+    isAchievementComplete,
+    isLanguageComplete,
+    isPatentComplete,
+    isProjectComplete,
+    isPublicationComplete,
+    migrateProfile,
+    validateStringTags,
+} from '@/lib/validation/profileSections';
 import {
     User,
     Briefcase,
@@ -30,8 +40,9 @@ import {
     Layout,
     Coffee,
     Stamp,
+    LayoutDashboard,
 } from 'lucide-react';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth } from '@clerk/nextjs';
 import { profileApi } from '@/services/apiClient';
 import { Profile } from '@/types/api';
 
@@ -48,8 +59,7 @@ const SIDEBAR_WIDTH_COLLAPSED = 'w-[72px]';
 
 export const SideMenu: React.FC = () => {
     const pathname = usePathname();
-    const router = useRouter();
-    const { user, logout } = useAuth();
+    const { isSignedIn, isLoaded } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isProfileExpanded, setIsProfileExpanded] = useState(true);
@@ -61,15 +71,15 @@ export const SideMenu: React.FC = () => {
         const fetchProfile = async () => {
             try {
                 const data = await profileApi.get();
-                setProfile(data);
+                setProfile(migrateProfile(data));
             } catch (err) {
                 console.error('Failed to fetch profile for badges:', err);
             }
         };
-        if (user) {
+        if (isLoaded && isSignedIn) {
             fetchProfile();
         }
-    }, [user]);
+    }, [isLoaded, isSignedIn]);
 
     // Intersection Observer for Active Section Highlighting
     useEffect(() => {
@@ -155,17 +165,29 @@ export const SideMenu: React.FC = () => {
             case 'experience':
                 return !profile.experience || profile.experience.length === 0;
             case 'education':
-                return !profile.education || profile.education.length === 0;
+                return !isEducationSectionComplete(profile.education || []);
             case 'skills':
                 return !profile.skills || profile.skills.length === 0;
             case 'projects':
-                return !profile.projects || profile.projects.length === 0;
+                return (
+                    !profile.projects?.length ||
+                    !profile.projects.every(isProjectComplete)
+                );
             case 'achievements':
-                return !profile.achievements || profile.achievements.length === 0;
+                return (
+                    !profile.achievements?.length ||
+                    !profile.achievements.every(isAchievementComplete)
+                );
             case 'publications':
-                return !profile.publications || profile.publications.length === 0;
+                return (
+                    !profile.publications?.length ||
+                    !profile.publications.every(isPublicationComplete)
+                );
             case 'patents':
-                return !profile.patents || profile.patents.length === 0;
+                return (
+                    !profile.patents?.length ||
+                    !profile.patents.every(isPatentComplete)
+                );
             case 'licenses':
                 return !profile.licenses || profile.licenses.length === 0;
             case 'trainings':
@@ -179,13 +201,18 @@ export const SideMenu: React.FC = () => {
             case 'career_breaks':
                 return !profile.career_breaks || profile.career_breaks.length === 0;
             case 'languages':
-                return !profile.languages || profile.languages.length === 0;
+                return (
+                    !profile.languages?.length ||
+                    !profile.languages.every(isLanguageComplete)
+                );
             case 'test_scores':
                 return !profile.test_scores || profile.test_scores.length === 0;
             case 'areas_of_interest':
-                return !profile.areas_of_interest || profile.areas_of_interest.length === 0;
+                return Boolean(
+                    validateStringTags(profile.areas_of_interest || [], 'Areas of interest')
+                );
             case 'hobbies':
-                return !profile.hobbies || profile.hobbies.length === 0;
+                return Boolean(validateStringTags(profile.hobbies || [], 'Hobbies'));
             default:
                 return false;
         }
@@ -213,13 +240,9 @@ export const SideMenu: React.FC = () => {
     ];
 
     const resumeItems: NavItem[] = [
+        { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
         { label: 'Generate Resume', icon: FilePlus, href: '/generate' },
     ];
-
-    const handleLogout = async () => {
-        await logout();
-        router.push('/login');
-    };
 
     const NavLink = ({ item, isSubItem = false }: { item: NavItem, isSubItem?: boolean }) => {
         const isActive = activeSection === item.sectionId ||
@@ -298,7 +321,9 @@ export const SideMenu: React.FC = () => {
                 aria-expanded={!isCollapsed}
             >
                 <div
-                    className="h-16 flex items-center justify-between px-6 border-b border-border"
+                    className={`h-16 flex items-center justify-between border-b border-border ${
+                        isCollapsed && !isMobileMenuOpen ? 'px-2' : 'px-6'
+                    }`}
                     onClick={(e) => {
                         // Prevent clicks on the header div itself (not on links or buttons) from triggering any actions
                         const target = e.target as HTMLElement;
@@ -316,11 +341,21 @@ export const SideMenu: React.FC = () => {
                 >
                     <Link
                         href="/"
-                        className="flex items-center gap-2 font-bold text-xl"
+                        className={`flex items-center font-bold text-primary ${
+                            isCollapsed && !isMobileMenuOpen
+                                ? 'flex-col text-[10px] leading-tight text-center w-full'
+                                : 'gap-2 text-xl'
+                        }`}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <span className={isCollapsed && !isMobileMenuOpen ? 'hidden' : 'block'}>Resume AI</span>
-                        {isCollapsed && !isMobileMenuOpen && <FilePlus className="w-8 h-8 text-primary" />}
+                        {isCollapsed && !isMobileMenuOpen ? (
+                            <>
+                                <span>Resume</span>
+                                <span>AI</span>
+                            </>
+                        ) : (
+                            <span>Resume AI</span>
+                        )}
                     </Link>
                     <button
                         onClick={(e) => {

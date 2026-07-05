@@ -5,9 +5,13 @@ import ProfilePage from '../app/(dashboard)/profile/page';
 import { profileApi } from '@/services/apiClient';
 
 // Mocks
-jest.mock('@/lib/auth/AuthContext', () => ({
-    useAuth: jest.fn(),
-    useRequireAuth: jest.fn(() => ({ user: { email: 'test@example.com' }, isAuthenticated: true })),
+jest.mock('@clerk/nextjs', () => ({
+    useAuth: jest.fn(() => ({ isLoaded: true, isSignedIn: true })),
+    useUser: jest.fn(() => ({
+        user: {
+            primaryEmailAddress: { emailAddress: 'john@example.com' },
+        },
+    })),
 }));
 
 jest.mock('@/services/apiClient', () => ({
@@ -20,9 +24,14 @@ jest.mock('@/services/apiClient', () => ({
 describe('Profile Page Layout', () => {
     beforeEach(() => {
         (profileApi.get as jest.Mock).mockResolvedValue({
-            personalInfo: { full_name: 'John Doe', email: 'john@example.com' },
+            personalInfo: {
+                full_name: 'John Doe',
+                email: 'john@example.com',
+                phone_number: '+1-5551234567',
+                location: 'San Francisco, California, United States',
+            },
             summary: 'Prof summary',
-            experience: [{ company: 'Google', title: 'Engineer', start_date: '2020-01-01', description: '' }],
+            experience: [{ company: 'Google', title: 'Engineer', start_date: '2020-01-01', end_date: null, description: 'Built scalable backend services.' }],
             education: [],
             skills: ['React'],
             projects: [{ id: '1', title: 'Project A', role: 'Dev', ongoing: true }],
@@ -66,5 +75,6 @@ describe('Profile Page Layout', () => {
         expect(screen.getByDisplayValue('john@example.com')).toBeInTheDocument();
         expect(screen.getByDisplayValue('Google')).toBeInTheDocument();
         expect(screen.getByDisplayValue('Project A')).toBeInTheDocument();
+        expect(screen.getAllByText('Description').length).toBeGreaterThan(0);
     });
 });

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth, useUser } from '@clerk/nextjs';
 import { profileApi, ApiClientError } from '@/services/apiClient';
 import {
     Profile,
@@ -8,27 +9,71 @@ import {
     Experience,
     Education,
     Certification,
-    Project,
-    Achievement,
-    Publication,
-    Patent,
-    Volunteering,
-    License,
-    Training,
-    TestScore,
-    Language,
-    Organization,
-    Position,
-    CareerBreak,
 } from '@/types/api';
 import {
     Button,
     Input,
     Textarea,
-    Card,
     Loading,
     ErrorDisplay,
+    ConfirmDialog,
+    Select,
 } from '@/components/ui';
+import { LocationPicker, isLocationComplete } from '@/components/profile/LocationPicker';
+import { RegionPicker } from '@/components/profile/RegionPicker';
+import { ProfileSectionCard, ProfileSectionFieldset } from '@/components/profile/ProfileSectionCard';
+import {
+    hasPersonalInfoErrors,
+    sanitizePhoneInput,
+    validatePersonalInfo,
+    validateProfileSummary,
+    PersonalInfoFieldErrors,
+} from '@/lib/validation/personalInfo';
+import {
+    dateToMonthValue,
+    ExperienceFieldErrors,
+    hasExperienceErrors,
+    isCurrentlyWorking,
+    monthValueToApiDate,
+    normalizeExperienceForApi,
+    validateExperienceEntries,
+} from '@/lib/validation/experience';
+import {
+    COURSE_OPTIONS,
+    DEGREE_LEVEL_OPTIONS,
+    EducationFieldErrors,
+    hasEducationErrors,
+    isCurrentlyStudying,
+    normalizeEducationForApi,
+    validateEducationEntries,
+} from '@/lib/validation/education';
+import {
+    hasEntryErrors,
+    migrateProfile,
+    normalizePublicationEntries,
+    normalizePatentEntries,
+    normalizeLicenses,
+    normalizeMonthOnlyEntries,
+    normalizeProjects,
+    normalizeTimedEntries,
+    validateAchievements,
+    validateCareerBreaks,
+    validateLanguages,
+    validateLicenses,
+    validateOrganizations,
+    validatePatents,
+    validatePositions,
+    validateProjects,
+    validatePublications,
+    validateStringTags,
+    validateTestScores,
+    validateTrainings,
+    validateVolunteering,
+} from '@/lib/validation/profileSections';
+import {
+    ExtendedProfileSections,
+    ProfileSectionKey as ExtendedProfileSectionKey,
+} from '@/components/profile/ExtendedProfileSections';
 import styles from './page.module.css';
 
 // -------------------------------------------------
@@ -68,16 +113,19 @@ const emptyExperience: Experience = {
     company: '',
     title: '',
     start_date: '',
-    end_date: null,
+    end_date: '',
     description: '',
 };
 
 const emptyEducation: Education = {
     institution: '',
-    degree: '',
+    degree_level: '',
+    course: '',
+    specialization: '',
+    location: '',
+    grade_type: '',
     start_date: '',
-    end_date: null,
-    description: '',
+    end_date: '',
 };
 
 const emptyCertification: Certification = {
@@ -90,75 +138,47 @@ const emptyCertification: Certification = {
 // Section Helpers
 // -------------------------------------------------
 
-const emptyProject: Project = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    title: '',
-    role: '',
-    ongoing: false,
-};
+type ProfileSectionKey =
+    | 'personalInfo'
+    | 'summary'
+    | 'experience'
+    | 'education'
+    | 'skills'
+    | 'projects'
+    | 'achievements'
+    | 'publications'
+    | 'patents'
+    | 'licenses'
+    | 'trainings'
+    | 'volunteering'
+    | 'organizations'
+    | 'positions'
+    | 'career_breaks'
+    | 'languages'
+    | 'test_scores'
+    | 'areas_of_interest'
+    | 'hobbies';
 
-const emptyAchievement: Achievement = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    title: '',
-};
-
-const emptyPublication: Publication = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    title: '',
-    authors: [],
-};
-
-const emptyPatent: Patent = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    title: '',
-    patent_number: '',
-    status: 'pending',
-};
-
-const emptyVolunteering: Volunteering = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    organization: '',
-    role: '',
-};
-
-const emptyLicense: License = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    name: '',
-    issuer: '',
-};
-
-const emptyTraining: Training = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    title: '',
-    provider: '',
-};
-
-const emptyTestScore: TestScore = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    test_name: '',
-    score: '',
-};
-
-const emptyLanguage: Language = {
-    language: '',
-    proficiency: 'conversational',
-};
-
-const emptyOrganization: Organization = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    name: '',
-    role: '',
-};
-
-const emptyPosition: Position = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    title: '',
-    organization: '',
-};
-
-const emptyCareerBreak: CareerBreak = {
-    id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).substring(7),
-    title: '',
+const SECTION_IDS: Record<ProfileSectionKey, string> = {
+    personalInfo: 'personal',
+    summary: 'summary',
+    experience: 'experience',
+    education: 'education',
+    skills: 'skills',
+    projects: 'projects',
+    achievements: 'achievements',
+    publications: 'publications',
+    patents: 'patents',
+    licenses: 'licenses',
+    trainings: 'trainings',
+    volunteering: 'volunteering',
+    organizations: 'organizations',
+    positions: 'positions',
+    career_breaks: 'career_breaks',
+    languages: 'languages',
+    test_scores: 'test_scores',
+    areas_of_interest: 'areas_of_interest',
+    hobbies: 'hobbies',
 };
 
 // -------------------------------------------------
@@ -166,24 +186,63 @@ const emptyCareerBreak: CareerBreak = {
 // -------------------------------------------------
 
 export default function ProfilePage() {
+    const { isLoaded, isSignedIn } = useAuth();
+    const { user } = useUser();
     const [profile, setProfile] = useState<Profile>(emptyProfile);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<Error | null>(null);
-    const [saveSuccess, setSaveSuccess] = useState(false);
-    const [isNewProfile, setIsNewProfile] = useState(true);
+    const [fieldErrors, setFieldErrors] = useState<PersonalInfoFieldErrors>({});
+    const [summaryError, setSummaryError] = useState<string | undefined>();
+    const [editingSections, setEditingSections] = useState<Set<ProfileSectionKey>>(new Set());
+    const [sectionSnapshots, setSectionSnapshots] = useState<Partial<Record<ProfileSectionKey, unknown>>>({});
+    const [savingSection, setSavingSection] = useState<ProfileSectionKey | null>(null);
+    const [sectionSaveSuccess, setSectionSaveSuccess] = useState<ProfileSectionKey | null>(null);
+    const [experienceFieldErrors, setExperienceFieldErrors] = useState<ExperienceFieldErrors>({});
+    const [experienceToDelete, setExperienceToDelete] = useState<number | null>(null);
+    const [educationFieldErrors, setEducationFieldErrors] = useState<EducationFieldErrors>({});
+    const [educationToDelete, setEducationToDelete] = useState<number | null>(null);
+    const [sectionFieldErrors, setSectionFieldErrors] = useState<
+        Partial<Record<ProfileSectionKey, Record<number, Record<string, string>>>>
+    >({});
+    const [sectionDeleteTarget, setSectionDeleteTarget] = useState<{
+        section: ExtendedProfileSectionKey;
+        index: number;
+    } | null>(null);
 
-    // Fetch profile on mount
+    const clerkEmail = user?.primaryEmailAddress?.emailAddress || '';
+
     useEffect(() => {
+        if (!clerkEmail) {
+            return;
+        }
+
+        setProfile((prev) => ({
+            ...prev,
+            personalInfo: {
+                ...prev.personalInfo,
+                email: clerkEmail,
+            },
+        }));
+    }, [clerkEmail]);
+
+    // Fetch profile once Clerk auth is ready
+    useEffect(() => {
+        if (!isLoaded) {
+            return;
+        }
+
+        if (!isSignedIn) {
+            setIsLoading(false);
+            return;
+        }
+
         const fetchProfile = async () => {
             try {
                 const data = await profileApi.get();
-                setProfile(data);
-                setIsNewProfile(false);
+                setProfile(migrateProfile(data));
             } catch (err) {
                 if (err instanceof ApiClientError && err.status === 404) {
                     // Profile doesn't exist yet, use empty profile
-                    setIsNewProfile(true);
                 } else {
                     setError(err as Error);
                 }
@@ -193,36 +252,319 @@ export default function ProfilePage() {
         };
 
         fetchProfile();
-    }, []);
+    }, [isLoaded, isSignedIn]);
 
-    // Save profile
-    const handleSave = async () => {
+    const isSectionEditing = (section: ProfileSectionKey) => editingSections.has(section);
+
+    const getSectionSnapshot = (section: ProfileSectionKey) => {
+        if (section === 'personalInfo') {
+            return structuredClone(profile.personalInfo);
+        }
+        return structuredClone(profile[section]);
+    };
+
+    const restoreSectionData = (section: ProfileSectionKey, snapshot: unknown) => {
+        if (section === 'personalInfo') {
+            setProfile((prev) => ({
+                ...prev,
+                personalInfo: snapshot as PersonalInfo,
+            }));
+            return;
+        }
+
+        setProfile((prev) => ({
+            ...prev,
+            [section]: snapshot,
+        }));
+    };
+
+    const startSectionEdit = (section: ProfileSectionKey) => {
+        setSectionSnapshots((prev) => ({
+            ...prev,
+            [section]: getSectionSnapshot(section),
+        }));
+        setEditingSections((prev) => new Set(prev).add(section));
+    };
+
+    const cancelSectionEdit = (section: ProfileSectionKey) => {
+        const snapshot = sectionSnapshots[section];
+        if (snapshot !== undefined) {
+            restoreSectionData(section, snapshot);
+        }
+        setEditingSections((prev) => {
+            const next = new Set(prev);
+            next.delete(section);
+            return next;
+        });
+        if (section === 'personalInfo') {
+            setFieldErrors({});
+        }
+        if (section === 'summary') {
+            setSummaryError(undefined);
+        }
+        if (section === 'experience') {
+            setExperienceFieldErrors({});
+        }
+        if (section === 'education') {
+            setEducationFieldErrors({});
+        }
+        if (
+            section === 'projects' ||
+            section === 'achievements' ||
+            section === 'publications' ||
+            section === 'patents' ||
+            section === 'licenses' ||
+            section === 'trainings' ||
+            section === 'volunteering' ||
+            section === 'organizations' ||
+            section === 'positions' ||
+            section === 'career_breaks' ||
+            section === 'languages' ||
+            section === 'test_scores'
+        ) {
+            setSectionFieldErrors((prev) => {
+                const next = { ...prev };
+                delete next[section];
+                return next;
+            });
+        }
+    };
+
+    const getSectionPayload = (section: ProfileSectionKey): Partial<Profile> => {
+        if (section === 'personalInfo') {
+            return {
+                personalInfo: {
+                    ...profile.personalInfo,
+                    email: clerkEmail || profile.personalInfo.email,
+                },
+            };
+        }
+        if (section === 'experience') {
+            return {
+                experience: profile.experience.map(normalizeExperienceForApi),
+            };
+        }
+        if (section === 'education') {
+            return {
+                education: normalizeEducationForApi(profile.education),
+            };
+        }
+        if (section === 'projects') {
+            return { projects: normalizeProjects(profile.projects || []) };
+        }
+        if (section === 'achievements') {
+            return { achievements: normalizeMonthOnlyEntries(profile.achievements || []) };
+        }
+        if (section === 'volunteering') {
+            return { volunteering: normalizeTimedEntries(profile.volunteering || []) };
+        }
+        if (section === 'organizations') {
+            return { organizations: normalizeTimedEntries(profile.organizations || []) };
+        }
+        if (section === 'positions') {
+            return { positions: normalizeTimedEntries(profile.positions || []) };
+        }
+        if (section === 'trainings') {
+            return { trainings: normalizeTimedEntries(profile.trainings || []) };
+        }
+        if (section === 'career_breaks') {
+            return { career_breaks: normalizeTimedEntries(profile.career_breaks || []) };
+        }
+        if (section === 'licenses') {
+            return { licenses: normalizeLicenses(profile.licenses || []) };
+        }
+        if (section === 'test_scores') {
+            return { test_scores: normalizeMonthOnlyEntries(profile.test_scores || []) };
+        }
+        if (section === 'publications') {
+            return { publications: normalizePublicationEntries(profile.publications || []) };
+        }
+        if (section === 'patents') {
+            return { patents: normalizePatentEntries(profile.patents || []) };
+        }
+        return { [section]: profile[section] };
+    };
+
+    const validateSection = (section: ProfileSectionKey): boolean => {
+        if (section === 'personalInfo') {
+            const personalInfoForSave = {
+                ...profile.personalInfo,
+                email: clerkEmail || profile.personalInfo.email,
+            };
+            const validationErrors = validatePersonalInfo(personalInfoForSave, {
+                locationSelected: isLocationComplete(personalInfoForSave.location),
+            });
+
+            if (hasPersonalInfoErrors(validationErrors)) {
+                setFieldErrors(validationErrors);
+                return false;
+            }
+
+            setFieldErrors({});
+            return true;
+        }
+
+        if (section === 'summary') {
+            const summaryValidationError = validateProfileSummary(profile.summary);
+            if (summaryValidationError) {
+                setSummaryError(summaryValidationError);
+                return false;
+            }
+
+            setSummaryError(undefined);
+            return true;
+        }
+
+        if (section === 'experience') {
+            const validationErrors = validateExperienceEntries(profile.experience);
+            if (hasExperienceErrors(validationErrors)) {
+                setExperienceFieldErrors(validationErrors);
+                return false;
+            }
+
+            setExperienceFieldErrors({});
+            return true;
+        }
+
+        if (section === 'education') {
+            const validationErrors = validateEducationEntries(profile.education);
+            if (hasEducationErrors(validationErrors)) {
+                setEducationFieldErrors(validationErrors);
+                return false;
+            }
+
+            setEducationFieldErrors({});
+            return true;
+        }
+
+        const runListValidation = (
+            key: ProfileSectionKey,
+            errors: Record<number, Record<string, string>>
+        ) => {
+            if (hasEntryErrors(errors)) {
+                setSectionFieldErrors((prev) => ({ ...prev, [key]: errors }));
+                return false;
+            }
+            setSectionFieldErrors((prev) => {
+                const next = { ...prev };
+                delete next[key];
+                return next;
+            });
+            return true;
+        };
+
+        if (section === 'projects') {
+            return runListValidation('projects', validateProjects(profile.projects || []));
+        }
+        if (section === 'achievements') {
+            return runListValidation('achievements', validateAchievements(profile.achievements || []));
+        }
+        if (section === 'publications') {
+            return runListValidation('publications', validatePublications(profile.publications || []));
+        }
+        if (section === 'patents') {
+            return runListValidation('patents', validatePatents(profile.patents || []));
+        }
+        if (section === 'licenses') {
+            return runListValidation('licenses', validateLicenses(profile.licenses || []));
+        }
+        if (section === 'trainings') {
+            return runListValidation('trainings', validateTrainings(profile.trainings || []));
+        }
+        if (section === 'volunteering') {
+            return runListValidation('volunteering', validateVolunteering(profile.volunteering || []));
+        }
+        if (section === 'organizations') {
+            return runListValidation('organizations', validateOrganizations(profile.organizations || []));
+        }
+        if (section === 'positions') {
+            return runListValidation('positions', validatePositions(profile.positions || []));
+        }
+        if (section === 'career_breaks') {
+            return runListValidation('career_breaks', validateCareerBreaks(profile.career_breaks || []));
+        }
+        if (section === 'languages') {
+            return runListValidation('languages', validateLanguages(profile.languages || []));
+        }
+        if (section === 'test_scores') {
+            return runListValidation('test_scores', validateTestScores(profile.test_scores || []));
+        }
+        if (section === 'areas_of_interest') {
+            const tagError = validateStringTags(profile.areas_of_interest || [], 'Areas of interest');
+            if (tagError) {
+                setSectionFieldErrors((prev) => ({ ...prev, areas_of_interest: { 0: { tags: tagError } } }));
+                return false;
+            }
+            setSectionFieldErrors((prev) => {
+                const next = { ...prev };
+                delete next.areas_of_interest;
+                return next;
+            });
+            return true;
+        }
+        if (section === 'hobbies') {
+            const tagError = validateStringTags(profile.hobbies || [], 'Hobbies');
+            if (tagError) {
+                setSectionFieldErrors((prev) => ({ ...prev, hobbies: { 0: { tags: tagError } } }));
+                return false;
+            }
+            setSectionFieldErrors((prev) => {
+                const next = { ...prev };
+                delete next.hobbies;
+                return next;
+            });
+            return true;
+        }
+
+        return true;
+    };
+
+    const saveSection = async (section: ProfileSectionKey) => {
+        if (!validateSection(section)) {
+            return;
+        }
+
         setError(null);
-        setSaveSuccess(false);
-        setIsSaving(true);
+        setSavingSection(section);
 
         try {
-            if (isNewProfile) {
-                await profileApi.create(profile);
-                setIsNewProfile(false);
-            } else {
-                await profileApi.update(profile);
-            }
-            setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 3000);
+            const updated = await profileApi.update(getSectionPayload(section));
+            setProfile(migrateProfile(updated));
+            setEditingSections((prev) => {
+                const next = new Set(prev);
+                next.delete(section);
+                return next;
+            });
+            setSectionSaveSuccess(section);
+            setTimeout(() => setSectionSaveSuccess(null), 3000);
         } catch (err) {
             setError(err as Error);
         } finally {
-            setIsSaving(false);
+            setSavingSection(null);
         }
     };
 
     // Update handlers
     const updatePersonalInfo = (field: keyof PersonalInfo, value: string) => {
+        if (field === 'email') {
+            return;
+        }
+
         setProfile((prev) => ({
             ...prev,
             personalInfo: { ...prev.personalInfo, [field]: value },
         }));
+
+        if (
+            (field === 'full_name' || field === 'phone_number' || field === 'location') &&
+            fieldErrors[field]
+        ) {
+            setFieldErrors((prev) => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
+        }
     };
 
     const updateExperience = (index: number, field: keyof Experience, value: string | null) => {
@@ -246,9 +588,15 @@ export default function ProfilePage() {
             ...prev,
             experience: prev.experience.filter((_, i) => i !== index),
         }));
+        setExperienceFieldErrors({});
+        setExperienceToDelete(null);
     };
 
-    const updateEducation = (index: number, field: keyof Education, value: string | null) => {
+    const updateEducation = (
+        index: number,
+        field: keyof Education,
+        value: Education[keyof Education]
+    ) => {
         setProfile((prev) => ({
             ...prev,
             education: prev.education.map((edu, i) =>
@@ -269,6 +617,8 @@ export default function ProfilePage() {
             ...prev,
             education: prev.education.filter((_, i) => i !== index),
         }));
+        setEducationFieldErrors({});
+        setEducationToDelete(null);
     };
 
     const updateCertification = (index: number, field: keyof Certification, value: string) => {
@@ -295,10 +645,23 @@ export default function ProfilePage() {
     };
 
     // New Section Handlers
-    const updateSection = <T extends keyof Profile>(section: T, index: number, field: any, value: any) => {
+    const updateSection = <T extends keyof Profile>(
+        section: T,
+        index: number,
+        field: string,
+        value: unknown
+    ) => {
+        if (section === 'areas_of_interest' || section === 'hobbies') {
+            setProfile((prev) => ({
+                ...prev,
+                [section]: value as string[],
+            }));
+            return;
+        }
+
         setProfile((prev) => {
-            const arr = [...(prev[section] as any[] || [])];
-            arr[index] = { ...arr[index], [field]: value };
+            const arr = [...((prev[section] as unknown[]) || [])];
+            arr[index] = { ...(arr[index] as object), [field]: value };
             return { ...prev, [section]: arr };
         });
     };
@@ -313,8 +676,14 @@ export default function ProfilePage() {
     const removeSectionItem = <T extends keyof Profile>(section: T, index: number) => {
         setProfile((prev) => ({
             ...prev,
-            [section]: (prev[section] as any[] || []).filter((_, i) => i !== index),
+            [section]: ((prev[section] as unknown[]) || []).filter((_, i) => i !== index),
         }));
+        setSectionFieldErrors((prev) => {
+            const next = { ...prev };
+            delete next[section as ProfileSectionKey];
+            return next;
+        });
+        setSectionDeleteTarget(null);
     };
 
     // Skills management
@@ -353,201 +722,433 @@ export default function ProfilePage() {
 
             {error && <ErrorDisplay error={error} onDismiss={() => setError(null)} />}
 
-            {saveSuccess && (
-                <div className={styles.successMessage}>
-                    ✓ Profile saved successfully
-                </div>
-            )}
-
-            <div className="space-y-12 pb-24">
+            <div className="space-y-12 pb-12">
                 {/* Personal Info Section */}
-                <section id="personal" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Personal Info</h2>
-                        <div className={styles.form}>
-                            <Input
-                                label="Full Name"
-                                value={profile.personalInfo.full_name}
-                                onChange={(e) => updatePersonalInfo('full_name', e.target.value)}
-                                placeholder="John Doe"
-                                required
-                            />
-                            <Input
-                                label="Email"
-                                type="email"
-                                value={profile.personalInfo.email}
-                                onChange={(e) => updatePersonalInfo('email', e.target.value)}
-                                placeholder="john@example.com"
-                                required
-                            />
-                            <Input
-                                label="Phone Number"
-                                type="tel"
-                                value={profile.personalInfo.phone_number || ''}
-                                onChange={(e) => updatePersonalInfo('phone_number', e.target.value)}
-                                placeholder="+1 (555) 123-4567"
-                            />
-                            <Input
-                                label="Location"
-                                value={profile.personalInfo.location || ''}
-                                onChange={(e) => updatePersonalInfo('location', e.target.value)}
-                                placeholder="San Francisco, CA"
-                            />
-                            <Input
-                                label="Portfolio URL"
-                                type="url"
-                                value={profile.personalInfo.portfolio_url || ''}
-                                onChange={(e) => updatePersonalInfo('portfolio_url', e.target.value)}
-                                placeholder="https://yourwebsite.com"
-                            />
-                        </div>
-                    </Card>
-                </section>
+                <ProfileSectionCard
+                    id={SECTION_IDS.personalInfo}
+                    title="Personal Info"
+                    isEditing={isSectionEditing('personalInfo')}
+                    isSaving={savingSection === 'personalInfo'}
+                    saveSuccess={sectionSaveSuccess === 'personalInfo'}
+                    onEdit={() => startSectionEdit('personalInfo')}
+                    onSave={() => saveSection('personalInfo')}
+                    onCancel={() => cancelSectionEdit('personalInfo')}
+                >
+                    <ProfileSectionFieldset isEditing={isSectionEditing('personalInfo')} className={styles.form}>
+                        <Input
+                            label="Full Name"
+                            value={profile.personalInfo.full_name}
+                            onChange={(e) => updatePersonalInfo('full_name', e.target.value)}
+                            placeholder="John Doe"
+                            required
+                            error={fieldErrors.full_name}
+                        />
+                        <Input
+                            label="Email"
+                            type="email"
+                            value={profile.personalInfo.email}
+                            placeholder="john@example.com"
+                            required
+                            disabled
+                            readOnly
+                            helperText="Email is managed by your account and cannot be changed here."
+                        />
+                        <Input
+                            label="Phone Number"
+                            type="tel"
+                            value={profile.personalInfo.phone_number || ''}
+                            onChange={(e) =>
+                                updatePersonalInfo('phone_number', sanitizePhoneInput(e.target.value))
+                            }
+                            placeholder="+91-9876543210"
+                            helperText="Use format +<countryCode>-<number> (e.g. +91-9876543210)."
+                            required
+                            error={fieldErrors.phone_number}
+                        />
+                        <LocationPicker
+                            value={profile.personalInfo.location || ''}
+                            onChange={(location) => updatePersonalInfo('location', location)}
+                            required
+                            error={fieldErrors.location}
+                            disabled={!isSectionEditing('personalInfo')}
+                        />
+                        <Input
+                            label="Portfolio URL"
+                            type="url"
+                            value={profile.personalInfo.portfolio_url || ''}
+                            onChange={(e) => updatePersonalInfo('portfolio_url', e.target.value)}
+                            placeholder="https://yourwebsite.com"
+                        />
+                    </ProfileSectionFieldset>
+                </ProfileSectionCard>
 
                 {/* Summary Section */}
-                <section id="summary" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Professional Summary</h2>
-                        <div className={styles.form}>
-                            <Textarea
-                                label="Summary"
-                                value={profile.summary}
-                                onChange={(e) => setProfile((prev) => ({ ...prev, summary: e.target.value }))}
-                                placeholder="Write a compelling summary..."
-                                maxLength={2500}
-                                charCount
-                                rows={8}
-                            />
-                        </div>
-                    </Card>
-                </section>
+                <ProfileSectionCard
+                    id={SECTION_IDS.summary}
+                    title="Professional Summary"
+                    isEditing={isSectionEditing('summary')}
+                    isSaving={savingSection === 'summary'}
+                    saveSuccess={sectionSaveSuccess === 'summary'}
+                    onEdit={() => startSectionEdit('summary')}
+                    onSave={() => saveSection('summary')}
+                    onCancel={() => cancelSectionEdit('summary')}
+                >
+                    <ProfileSectionFieldset isEditing={isSectionEditing('summary')} className={styles.form}>
+                        <Textarea
+                            label="Summary"
+                            value={profile.summary}
+                            onChange={(e) => {
+                                setProfile((prev) => ({ ...prev, summary: e.target.value }));
+                                if (summaryError) {
+                                    setSummaryError(undefined);
+                                }
+                            }}
+                            placeholder="Write a compelling summary..."
+                            maxLength={2500}
+                            charCount
+                            rows={8}
+                            required
+                            error={summaryError}
+                        />
+                    </ProfileSectionFieldset>
+                </ProfileSectionCard>
 
                 {/* Experience Section */}
-                <section id="experience" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Experience</h2>
-                        <div className={styles.form}>
-                            {profile.experience.map((exp, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Experience {index + 1}</span>
+                <ProfileSectionCard
+                    id={SECTION_IDS.experience}
+                    title="Experience"
+                    isEditing={isSectionEditing('experience')}
+                    isSaving={savingSection === 'experience'}
+                    saveSuccess={sectionSaveSuccess === 'experience'}
+                    onEdit={() => startSectionEdit('experience')}
+                    onSave={() => saveSection('experience')}
+                    onCancel={() => cancelSectionEdit('experience')}
+                >
+                    <ProfileSectionFieldset isEditing={isSectionEditing('experience')} className={styles.form}>
+                        {profile.experience.map((exp, index) => (
+                            <div key={index} className={styles.entryCard}>
+                                <div className={styles.entryHeader}>
+                                    <span className={styles.entryTitle}>Experience {index + 1}</span>
+                                    {isSectionEditing('experience') && (
                                         <button
                                             type="button"
                                             className={styles.removeButton}
-                                            onClick={() => removeExperience(index)}
+                                            onClick={() => setExperienceToDelete(index)}
                                         >
                                             Remove
                                         </button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input
-                                            label="Company"
-                                            value={exp.company}
-                                            onChange={(e) => updateExperience(index, 'company', e.target.value)}
-                                            placeholder="Company Name"
-                                            required
-                                        />
-                                        <Input
-                                            label="Title"
-                                            value={exp.title}
-                                            onChange={(e) => updateExperience(index, 'title', e.target.value)}
-                                            placeholder="Job Title"
-                                            required
-                                        />
-                                        <div className={styles.dateRow}>
-                                            <Input
-                                                label="Start Date"
-                                                type="date"
-                                                value={exp.start_date}
-                                                onChange={(e) => updateExperience(index, 'start_date', e.target.value)}
-                                                required
-                                            />
-                                            <Input
-                                                label="End Date"
-                                                type="date"
-                                                value={exp.end_date || ''}
-                                                onChange={(e) => updateExperience(index, 'end_date', e.target.value || null)}
-                                            />
-                                        </div>
-                                        <Textarea
-                                            label="Description"
-                                            value={exp.description || ''}
-                                            onChange={(e) => updateExperience(index, 'description', e.target.value)}
-                                            placeholder="Describe your responsibilities..."
-                                            rows={4}
-                                        />
-                                    </div>
+                                    )}
                                 </div>
-                            ))}
-                            <Button variant="secondary" onClick={addExperience}>
-                                + Add Experience
-                            </Button>
-                        </div>
-                    </Card>
-                </section>
+                                <div className={styles.entryFields}>
+                                    <Input
+                                        label="Company"
+                                        value={exp.company}
+                                        onChange={(e) => updateExperience(index, 'company', e.target.value)}
+                                        placeholder="Company Name"
+                                        required
+                                        error={experienceFieldErrors[index]?.company}
+                                    />
+                                    <Input
+                                        label="Title"
+                                        value={exp.title}
+                                        onChange={(e) => updateExperience(index, 'title', e.target.value)}
+                                        placeholder="Job Title"
+                                        required
+                                        error={experienceFieldErrors[index]?.title}
+                                    />
+                                    <div className={styles.dateRow}>
+                                        <Input
+                                            label="Start Date"
+                                            type="month"
+                                            value={dateToMonthValue(exp.start_date)}
+                                            onChange={(e) =>
+                                                updateExperience(
+                                                    index,
+                                                    'start_date',
+                                                    monthValueToApiDate(e.target.value)
+                                                )
+                                            }
+                                            helperText="Month and year only"
+                                            required
+                                            error={experienceFieldErrors[index]?.start_date}
+                                        />
+                                        <Input
+                                            label="End Date"
+                                            type="month"
+                                            value={dateToMonthValue(exp.end_date || '')}
+                                            onChange={(e) =>
+                                                updateExperience(
+                                                    index,
+                                                    'end_date',
+                                                    e.target.value
+                                                        ? monthValueToApiDate(e.target.value)
+                                                        : ''
+                                                )
+                                            }
+                                            helperText="Month and year only"
+                                            disabled={isCurrentlyWorking(exp)}
+                                            required={!isCurrentlyWorking(exp)}
+                                            error={experienceFieldErrors[index]?.end_date}
+                                        />
+                                    </div>
+                                    <label className={styles.checkboxRow}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isCurrentlyWorking(exp)}
+                                            onChange={(e) => {
+                                                updateExperience(
+                                                    index,
+                                                    'end_date',
+                                                    e.target.checked ? null : ''
+                                                );
+                                            }}
+                                        />
+                                        <span>I currently work here</span>
+                                    </label>
+                                    <Textarea
+                                        label="Description"
+                                        value={exp.description || ''}
+                                        onChange={(e) =>
+                                            updateExperience(index, 'description', e.target.value)
+                                        }
+                                        placeholder="Describe your responsibilities..."
+                                        rows={4}
+                                        required
+                                        error={experienceFieldErrors[index]?.description}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </ProfileSectionFieldset>
+                    {isSectionEditing('experience') && (
+                        <Button variant="secondary" onClick={addExperience}>
+                            + Add Experience
+                        </Button>
+                    )}
+                </ProfileSectionCard>
 
                 {/* Education Section */}
-                <section id="education" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Education</h2>
-                        <div className={styles.form}>
-                            {profile.education.map((edu, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Education {index + 1}</span>
+                <ProfileSectionCard
+                    id={SECTION_IDS.education}
+                    title="Education"
+                    isEditing={isSectionEditing('education')}
+                    isSaving={savingSection === 'education'}
+                    saveSuccess={sectionSaveSuccess === 'education'}
+                    onEdit={() => startSectionEdit('education')}
+                    onSave={() => saveSection('education')}
+                    onCancel={() => cancelSectionEdit('education')}
+                >
+                    <ProfileSectionFieldset isEditing={isSectionEditing('education')} className={styles.form}>
+                        {profile.education.map((edu, index) => (
+                            <div key={index} className={styles.entryCard}>
+                                <div className={styles.entryHeader}>
+                                    <span className={styles.entryTitle}>Education {index + 1}</span>
+                                    {isSectionEditing('education') && (
                                         <button
                                             type="button"
                                             className={styles.removeButton}
-                                            onClick={() => removeEducation(index)}
+                                            onClick={() => setEducationToDelete(index)}
                                         >
                                             Remove
                                         </button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input
-                                            label="Institution"
-                                            value={edu.institution}
-                                            onChange={(e) => updateEducation(index, 'institution', e.target.value)}
-                                            placeholder="University Name"
-                                            required
-                                        />
-                                        <Input
-                                            label="Degree"
-                                            value={edu.degree}
-                                            onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                                            placeholder="B.S. in CS"
-                                            required
-                                        />
-                                        <div className={styles.dateRow}>
-                                            <Input
-                                                label="Start Date"
-                                                type="date"
-                                                value={edu.start_date}
-                                                onChange={(e) => updateEducation(index, 'start_date', e.target.value)}
-                                                required
-                                            />
-                                            <Input
-                                                label="End Date"
-                                                type="date"
-                                                value={edu.end_date || ''}
-                                                onChange={(e) => updateEducation(index, 'end_date', e.target.value || null)}
-                                            />
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
-                            ))}
-                            <Button variant="secondary" onClick={addEducation}>
-                                + Add Education
-                            </Button>
-                        </div>
-                    </Card>
-                </section>
+                                <div className={styles.entryFields}>
+                                    <Input
+                                        label="Institute Name"
+                                        value={edu.institution}
+                                        onChange={(e) => updateEducation(index, 'institution', e.target.value)}
+                                        placeholder="University or college name"
+                                        required
+                                        error={educationFieldErrors[index]?.institution}
+                                    />
+                                    <Select
+                                        label="Degree Level"
+                                        value={edu.degree_level || ''}
+                                        onChange={(value) => updateEducation(index, 'degree_level', value)}
+                                        options={DEGREE_LEVEL_OPTIONS.map((option) => ({
+                                            value: option,
+                                            label: option,
+                                        }))}
+                                        placeholder="Select degree level"
+                                        required
+                                        error={educationFieldErrors[index]?.degree_level}
+                                    />
+                                    {edu.degree_level === 'Other' && (
+                                        <Input
+                                            label="Degree Level (Other)"
+                                            value={edu.degree_level_other || ''}
+                                            onChange={(e) =>
+                                                updateEducation(index, 'degree_level_other', e.target.value)
+                                            }
+                                            placeholder="Specify degree level"
+                                            required
+                                            error={educationFieldErrors[index]?.degree_level_other}
+                                        />
+                                    )}
+                                    <Select
+                                        label="Course"
+                                        value={edu.course || ''}
+                                        onChange={(value) => updateEducation(index, 'course', value)}
+                                        options={COURSE_OPTIONS.map((option) => ({
+                                            value: option,
+                                            label: option,
+                                        }))}
+                                        placeholder="Select course"
+                                        required
+                                        error={educationFieldErrors[index]?.course}
+                                    />
+                                    {edu.course === 'Other' && (
+                                        <Input
+                                            label="Course (Other)"
+                                            value={edu.course_other || ''}
+                                            onChange={(e) => updateEducation(index, 'course_other', e.target.value)}
+                                            placeholder="Specify course"
+                                            required
+                                            error={educationFieldErrors[index]?.course_other}
+                                        />
+                                    )}
+                                    <Input
+                                        label="Specialization"
+                                        value={edu.specialization || ''}
+                                        onChange={(e) => updateEducation(index, 'specialization', e.target.value)}
+                                        placeholder="e.g. Computer Science"
+                                        required
+                                        error={educationFieldErrors[index]?.specialization}
+                                    />
+                                    <RegionPicker
+                                        value={edu.location || ''}
+                                        onChange={(location) => updateEducation(index, 'location', location)}
+                                        required
+                                        disabled={!isSectionEditing('education')}
+                                        error={educationFieldErrors[index]?.location}
+                                    />
+                                    <fieldset className={styles.gradeFieldset}>
+                                        <legend className={styles.gradeLegend}>Grade</legend>
+                                        <div className={styles.radioGroup}>
+                                            <label className={styles.checkboxRow}>
+                                                <input
+                                                    type="radio"
+                                                    name={`grade-type-${index}`}
+                                                    checked={edu.grade_type === 'percentage'}
+                                                    onChange={() =>
+                                                        updateEducation(index, 'grade_type', 'percentage')
+                                                    }
+                                                />
+                                                <span>Percentage</span>
+                                            </label>
+                                            <label className={styles.checkboxRow}>
+                                                <input
+                                                    type="radio"
+                                                    name={`grade-type-${index}`}
+                                                    checked={edu.grade_type === 'cgpa'}
+                                                    onChange={() => updateEducation(index, 'grade_type', 'cgpa')}
+                                                />
+                                                <span>CGPA</span>
+                                            </label>
+                                        </div>
+                                        {edu.grade_type && (
+                                            <Input
+                                                label={
+                                                    edu.grade_type === 'percentage'
+                                                        ? 'Percentage (0–100)'
+                                                        : 'CGPA (0–10)'
+                                                }
+                                                type="number"
+                                                step={edu.grade_type === 'percentage' ? '0.1' : '0.1'}
+                                                min={0}
+                                                max={edu.grade_type === 'percentage' ? 100 : 10}
+                                                value={
+                                                    edu.grade_value === undefined || edu.grade_value === null
+                                                        ? ''
+                                                        : String(edu.grade_value)
+                                                }
+                                                onChange={(e) => {
+                                                    const nextValue = e.target.value;
+                                                    updateEducation(
+                                                        index,
+                                                        'grade_value',
+                                                        nextValue === '' ? undefined : Number(nextValue)
+                                                    );
+                                                }}
+                                                required
+                                                error={educationFieldErrors[index]?.grade_value}
+                                            />
+                                        )}
+                                    </fieldset>
+                                    <div className={styles.dateRow}>
+                                        <Input
+                                            label="Start Date"
+                                            type="month"
+                                            value={dateToMonthValue(edu.start_date)}
+                                            onChange={(e) =>
+                                                updateEducation(
+                                                    index,
+                                                    'start_date',
+                                                    monthValueToApiDate(e.target.value)
+                                                )
+                                            }
+                                            helperText="Month and year only"
+                                            required
+                                            error={educationFieldErrors[index]?.start_date}
+                                        />
+                                        <Input
+                                            label="End Date"
+                                            type="month"
+                                            value={dateToMonthValue(edu.end_date || '')}
+                                            onChange={(e) =>
+                                                updateEducation(
+                                                    index,
+                                                    'end_date',
+                                                    e.target.value
+                                                        ? monthValueToApiDate(e.target.value)
+                                                        : ''
+                                                )
+                                            }
+                                            helperText="Month and year only"
+                                            disabled={isCurrentlyStudying(edu)}
+                                            required={!isCurrentlyStudying(edu)}
+                                            error={educationFieldErrors[index]?.end_date}
+                                        />
+                                    </div>
+                                    <label className={styles.checkboxRow}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isCurrentlyStudying(edu)}
+                                            onChange={(e) => {
+                                                updateEducation(
+                                                    index,
+                                                    'end_date',
+                                                    e.target.checked ? null : ''
+                                                );
+                                            }}
+                                        />
+                                        <span>I currently study here</span>
+                                    </label>
+                                </div>
+                            </div>
+                        ))}
+                    </ProfileSectionFieldset>
+                    {isSectionEditing('education') && (
+                        <Button variant="secondary" onClick={addEducation}>
+                            + Add Education
+                        </Button>
+                    )}
+                </ProfileSectionCard>
 
                 {/* Skills Section */}
-                <section id="skills" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Skills</h2>
-                        <div className={styles.form}>
+                <ProfileSectionCard
+                    id={SECTION_IDS.skills}
+                    title="Skills"
+                    isEditing={isSectionEditing('skills')}
+                    isSaving={savingSection === 'skills'}
+                    saveSuccess={sectionSaveSuccess === 'skills'}
+                    onEdit={() => startSectionEdit('skills')}
+                    onSave={() => saveSection('skills')}
+                    onCancel={() => cancelSectionEdit('skills')}
+                >
+                    <ProfileSectionFieldset isEditing={isSectionEditing('skills')} className={styles.form}>
+                        {isSectionEditing('skills') && (
                             <div className={styles.skillInput}>
                                 <Input
                                     label="Add Skill"
@@ -565,10 +1166,12 @@ export default function ProfilePage() {
                                     Add
                                 </Button>
                             </div>
-                            <div className={styles.skillsList}>
-                                {profile.skills.map((skill, index) => (
-                                    <span key={index} className={styles.skillTag}>
-                                        {skill}
+                        )}
+                        <div className={styles.skillsList}>
+                            {profile.skills.map((skill, index) => (
+                                <span key={index} className={styles.skillTag}>
+                                    {skill}
+                                    {isSectionEditing('skills') && (
                                         <button
                                             type="button"
                                             className={styles.skillRemove}
@@ -576,313 +1179,70 @@ export default function ProfilePage() {
                                         >
                                             ×
                                         </button>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Projects Section */}
-                <section id="projects" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Projects</h2>
-                        <div className={styles.form}>
-                            {(profile.projects || []).map((project, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Project {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('projects', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Title" value={project.title} onChange={(e) => updateSection('projects', index, 'title', e.target.value)} required />
-                                        <Input label="Role" value={project.role} onChange={(e) => updateSection('projects', index, 'role', e.target.value)} required />
-                                        <Textarea label="Description" value={project.description || ''} onChange={(e) => updateSection('projects', index, 'description', e.target.value)} />
-                                    </div>
-                                </div>
+                                    )}
+                                </span>
                             ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('projects', emptyProject)}>+ Add Project</Button>
                         </div>
-                    </Card>
-                </section>
+                    </ProfileSectionFieldset>
+                </ProfileSectionCard>
 
-                {/* Achievements Section */}
-                <section id="achievements" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Achievements</h2>
-                        <div className={styles.form}>
-                            {(profile.achievements || []).map((achievement, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Achievement {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('achievements', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Title" value={achievement.title} onChange={(e) => updateSection('achievements', index, 'title', e.target.value)} required />
-                                        <Textarea label="Description" value={achievement.description || ''} onChange={(e) => updateSection('achievements', index, 'description', e.target.value)} />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('achievements', emptyAchievement)}>+ Add Achievement</Button>
-                        </div>
-                    </Card>
-                </section>
+                <ExtendedProfileSections
+                    profile={profile}
+                    isSectionEditing={(section) => isSectionEditing(section)}
+                    savingSection={
+                        savingSection as ExtendedProfileSectionKey | null
+                    }
+                    sectionSaveSuccess={
+                        sectionSaveSuccess as ExtendedProfileSectionKey | null
+                    }
+                    startSectionEdit={(section) => startSectionEdit(section)}
+                    saveSection={(section) => saveSection(section)}
+                    cancelSectionEdit={(section) => cancelSectionEdit(section)}
+                    updateSection={updateSection}
+                    addSectionItem={addSectionItem}
+                    requestRemove={(section, index) => setSectionDeleteTarget({ section, index })}
+                    sectionFieldErrors={sectionFieldErrors}
+                    SECTION_IDS={SECTION_IDS}
+                />
 
-                {/* Publications Section */}
-                <section id="publications" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Publications</h2>
-                        <div className={styles.form}>
-                            {(profile.publications || []).map((pub, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Publication {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('publications', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Title" value={pub.title} onChange={(e) => updateSection('publications', index, 'title', e.target.value)} required />
-                                        <Input label="Venue" value={pub.venue || ''} onChange={(e) => updateSection('publications', index, 'venue', e.target.value)} />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('publications', emptyPublication)}>+ Add Publication</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Patents Section */}
-                <section id="patents" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Patents</h2>
-                        <div className={styles.form}>
-                            {(profile.patents || []).map((patent, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Patent {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('patents', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Title" value={patent.title} onChange={(e) => updateSection('patents', index, 'title', e.target.value)} required />
-                                        <Input label="Patent Number" value={patent.patent_number} onChange={(e) => updateSection('patents', index, 'patent_number', e.target.value)} required />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('patents', emptyPatent)}>+ Add Patent</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Licenses Section */}
-                <section id="licenses" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Licenses</h2>
-                        <div className={styles.form}>
-                            {(profile.licenses || []).map((lic, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>License {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('licenses', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Name" value={lic.name} onChange={(e) => updateSection('licenses', index, 'name', e.target.value)} required />
-                                        <Input label="Issuer" value={lic.issuer} onChange={(e) => updateSection('licenses', index, 'issuer', e.target.value)} required />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('licenses', emptyLicense)}>+ Add License</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Trainings Section */}
-                <section id="trainings" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Trainings</h2>
-                        <div className={styles.form}>
-                            {(profile.trainings || []).map((training, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Training {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('trainings', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Title" value={training.title} onChange={(e) => updateSection('trainings', index, 'title', e.target.value)} required />
-                                        <Input label="Provider" value={training.provider} onChange={(e) => updateSection('trainings', index, 'provider', e.target.value)} required />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('trainings', emptyTraining)}>+ Add Training</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Volunteering Section */}
-                <section id="volunteering" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Volunteering</h2>
-                        <div className={styles.form}>
-                            {(profile.volunteering || []).map((vol, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Volunteering {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('volunteering', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Organization" value={vol.organization} onChange={(e) => updateSection('volunteering', index, 'organization', e.target.value)} required />
-                                        <Input label="Role" value={vol.role} onChange={(e) => updateSection('volunteering', index, 'role', e.target.value)} required />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('volunteering', emptyVolunteering)}>+ Add Volunteering</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Organizations Section */}
-                <section id="organizations" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Organizations</h2>
-                        <div className={styles.form}>
-                            {(profile.organizations || []).map((org, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Organization {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('organizations', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Name" value={org.name} onChange={(e) => updateSection('organizations', index, 'name', e.target.value)} required />
-                                        <Input label="Role" value={org.role} onChange={(e) => updateSection('organizations', index, 'role', e.target.value)} required />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('organizations', emptyOrganization)}>+ Add Organization</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Positions Section */}
-                <section id="positions" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Positions</h2>
-                        <div className={styles.form}>
-                            {(profile.positions || []).map((pos, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Position {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('positions', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Title" value={pos.title} onChange={(e) => updateSection('positions', index, 'title', e.target.value)} required />
-                                        <Input label="Organization" value={pos.organization} onChange={(e) => updateSection('positions', index, 'organization', e.target.value)} required />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('positions', emptyPosition)}>+ Add Position</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Career Breaks Section */}
-                <section id="career_breaks" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Career Breaks</h2>
-                        <div className={styles.form}>
-                            {(profile.career_breaks || []).map((cb, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Career Break {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('career_breaks', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Title" value={cb.title} onChange={(e) => updateSection('career_breaks', index, 'title', e.target.value)} required />
-                                        <Textarea label="Description" value={cb.description || ''} onChange={(e) => updateSection('career_breaks', index, 'description', e.target.value)} />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('career_breaks', emptyCareerBreak)}>+ Add Career Break</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Languages Section */}
-                <section id="languages" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Languages</h2>
-                        <div className={styles.form}>
-                            {(profile.languages || []).map((lang, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Language {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('languages', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Language" value={lang.language} onChange={(e) => updateSection('languages', index, 'language', e.target.value)} required />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('languages', emptyLanguage)}>+ Add Language</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Test Scores Section */}
-                <section id="test_scores" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Test Scores</h2>
-                        <div className={styles.form}>
-                            {(profile.test_scores || []).map((score, index) => (
-                                <div key={index} className={styles.entryCard}>
-                                    <div className={styles.entryHeader}>
-                                        <span className={styles.entryTitle}>Test Score {index + 1}</span>
-                                        <button type="button" className={styles.removeButton} onClick={() => removeSectionItem('test_scores', index)}>Remove</button>
-                                    </div>
-                                    <div className={styles.entryFields}>
-                                        <Input label="Test Name" value={score.test_name} onChange={(e) => updateSection('test_scores', index, 'test_name', e.target.value)} required />
-                                        <Input label="Score" value={score.score} onChange={(e) => updateSection('test_scores', index, 'score', e.target.value)} required />
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="secondary" onClick={() => addSectionItem('test_scores', emptyTestScore)}>+ Add Test Score</Button>
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Areas of Interest Section */}
-                <section id="areas_of_interest" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Areas of Interest</h2>
-                        <div className={styles.form}>
-                            <Textarea
-                                label="Interests"
-                                value={(profile.areas_of_interest || []).join(', ')}
-                                onChange={(e) => setProfile(prev => ({ ...prev, areas_of_interest: e.target.value.split(',').map(s => s.trim()) }))}
-                                placeholder="e.g., Open Source, Machine Learning"
-                            />
-                        </div>
-                    </Card>
-                </section>
-
-                {/* Hobbies Section */}
-                <section id="hobbies" className="scroll-mt-20">
-                    <Card className={styles.formCard}>
-                        <h2 className="text-xl font-bold mb-6">Hobbies</h2>
-                        <div className={styles.form}>
-                            <Textarea
-                                label="Hobbies"
-                                value={(profile.hobbies || []).join(', ')}
-                                onChange={(e) => setProfile(prev => ({ ...prev, hobbies: e.target.value.split(',').map(s => s.trim()) }))}
-                                placeholder="e.g., Reading, Hiking"
-                            />
-                        </div>
-                    </Card>
-                </section>
             </div>
 
-            <div className={styles.saveBar}>
-                <Button onClick={handleSave} isLoading={isSaving} size="lg">
-                    Save Profile
-                </Button>
-            </div>
+            <ConfirmDialog
+                open={sectionDeleteTarget !== null}
+                title="Remove entry?"
+                message="Remove this entry? This cannot be undone until you cancel editing."
+                confirmLabel="Remove"
+                onConfirm={() => {
+                    if (sectionDeleteTarget) {
+                        removeSectionItem(sectionDeleteTarget.section, sectionDeleteTarget.index);
+                    }
+                }}
+                onCancel={() => setSectionDeleteTarget(null)}
+            />
+            <ConfirmDialog
+                open={experienceToDelete !== null}
+                title="Remove experience?"
+                message="Remove this experience entry? This cannot be undone until you cancel editing."
+                confirmLabel="Remove"
+                onConfirm={() => {
+                    if (experienceToDelete !== null) {
+                        removeExperience(experienceToDelete);
+                    }
+                }}
+                onCancel={() => setExperienceToDelete(null)}
+            />
+            <ConfirmDialog
+                open={educationToDelete !== null}
+                title="Remove education?"
+                message="Remove this education entry? This cannot be undone until you cancel editing."
+                confirmLabel="Remove"
+                onConfirm={() => {
+                    if (educationToDelete !== null) {
+                        removeEducation(educationToDelete);
+                    }
+                }}
+                onCancel={() => setEducationToDelete(null)}
+            />
         </div>
     );
 }

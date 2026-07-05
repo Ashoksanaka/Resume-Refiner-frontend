@@ -308,8 +308,11 @@
 }
 
 .previewContainer {
-    margin: var(--spacing-xl) 0;
+    margin: var(--spacing-xl) auto;
     width: 100%;
+    max-width: 900px;
+    display: flex;
+    justify-content: center;
     animation: fadeIn 0.5s ease-out forwards;
 }
 

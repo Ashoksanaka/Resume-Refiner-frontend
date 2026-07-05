@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # =============================================================================
 # Frontend Dockerfile
 # =============================================================================
@@ -14,10 +15,9 @@ RUN apk add --no-cache libc6-compat
 # -----------------------------------------------------------------------------
 FROM base AS deps
 WORKDIR /app
-# Copy package files (we don't have package-lock.json committed yet based on checks, but assuming it exists or will be generated)
-COPY package.json package-lock.json* ./
-# Install dependencies
-RUN \
+COPY package.json package-lock.json* .npmrc* ./
+RUN --mount=type=cache,target=/root/.npm \
+  set -e; \
   if [ -f package-lock.json ]; then npm ci; \
   else echo "Warning: Lockfile not found. It is recommended to commit lockfiles to version control." && npm install; \
   fi
@@ -30,9 +30,28 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build the application
-# Disable telemetry during build
+# NEXT_PUBLIC_* must be available at build time for Next.js client bundle
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
+ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=/dashboard
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=/dashboard
+ARG NEXT_PUBLIC_API_URL=/api/v1
+ARG BACKEND_URL=http://backend:8000
+
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL
+ENV NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL
+ENV NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL
+ENV NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL
+ENV NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV BACKEND_URL=$BACKEND_URL
 ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
 # -----------------------------------------------------------------------------
@@ -42,19 +61,14 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-# Disable telemetry during runtime
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Set correct permission for prerender cache
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
-# Copy built artifacts
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
@@ -64,6 +78,4 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT=3000
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/next-config-js/output
 CMD ["node", "server.js"]

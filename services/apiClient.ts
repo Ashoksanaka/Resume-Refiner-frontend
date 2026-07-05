@@ -5,15 +5,13 @@
 
 import {
     User,
-    SignupRequest,
-    VerifyRequest,
-    LoginRequest,
     Profile,
     JobDescription,
     JobDescriptionRequest,
     ResumeGenerationRequest,
     TriggerGenerationRequest,
     ResumeSource,
+    ProfileSaveEvent,
     ApiError,
     AuthError,
     LegacyApiError,
@@ -25,6 +23,28 @@ import {
 // -------------------------------------------------
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+
+let tokenGetter: (() => Promise<string | null>) | null = null;
+let authReadyResolvers: Array<() => void> = [];
+
+export function markAuthReady() {
+    authReadyResolvers.forEach((resolve) => resolve());
+    authReadyResolvers = [];
+}
+
+function waitForAuthReady(): Promise<void> {
+    if (tokenGetter) {
+        return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+        authReadyResolvers.push(resolve);
+    });
+}
+
+export function setTokenGetter(fn: () => Promise<string | null>) {
+    tokenGetter = fn;
+    markAuthReady();
+}
 
 // -------------------------------------------------
 // Custom Error Class
@@ -97,9 +117,23 @@ async function request<T>(
 ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
 
+    await waitForAuthReady();
+
     const defaultHeaders: HeadersInit = {
         'Content-Type': 'application/json',
     };
+
+    if (tokenGetter) {
+        const token = await tokenGetter();
+        if (token) {
+            (defaultHeaders as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+        }
+    }
+
+    const isDownloadEndpoint = endpoint.includes('/download');
+    if (isDownloadEndpoint) {
+        delete (defaultHeaders as Record<string, string>)['Content-Type'];
+    }
 
     const response = await fetch(url, {
         ...options,
@@ -107,7 +141,6 @@ async function request<T>(
             ...defaultHeaders,
             ...options.headers,
         },
-        credentials: 'include', // Include cookies for session auth
     });
 
     // Handle no content response
@@ -119,11 +152,10 @@ async function request<T>(
     // Check multiple indicators since Next.js proxy may strip headers
     const contentType = response.headers.get('Content-Type') || '';
     const contentDisposition = response.headers.get('Content-Disposition') || '';
-    const isDownloadEndpoint = endpoint.includes('/download');
     const isPdfResponse = contentType.includes('application/pdf') ||
         contentType.includes('application/octet-stream') ||
         contentDisposition.includes('.pdf') ||
-        isDownloadEndpoint;
+        (isDownloadEndpoint && response.ok);
 
     if (isPdfResponse && response.ok) {
         // Get the blob and ensure it has the correct MIME type
@@ -186,52 +218,7 @@ async function request<T>(
 
 export const authApi = {
     /**
-     * Register a new user
-     * POST /auth/signup
-     * Returns 202 Accepted on success
-     */
-    async signup(data: SignupRequest): Promise<void> {
-        await request<void>('/auth/signup', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
-    },
-
-    /**
-     * Verify email with token
-     * POST /auth/verify
-     */
-    async verify(data: VerifyRequest): Promise<void> {
-        await request<void>('/auth/verify', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
-    },
-
-    /**
-     * Log in a user
-     * POST /auth/login
-     * Returns User object and sets session cookie
-     */
-    async login(data: LoginRequest): Promise<User> {
-        return request<User>('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
-    },
-
-    /**
-     * Log out current user
-     * POST /auth/logout
-     */
-    async logout(): Promise<void> {
-        await request<void>('/auth/logout', {
-            method: 'POST',
-        });
-    },
-
-    /**
-     * Get current authenticated user
+     * Get current authenticated user from backend
      * GET /auth/me
      */
     async me(): Promise<User> {
@@ -272,6 +259,14 @@ export const profileApi = {
             method: 'PATCH',
             body: JSON.stringify(profile),
         });
+    },
+
+    /**
+     * Get recent profile save history
+     * GET /profiles/me/history?limit=3
+     */
+    async getHistory(limit = 3): Promise<ProfileSaveEvent[]> {
+        return request<ProfileSaveEvent[]>(`/profiles/me/history?limit=${limit}`);
     },
 };
 
@@ -317,6 +312,14 @@ export const jobDescriptionApi = {
 
 export const resumeApi = {
     /**
+     * List resume generation requests for the current user
+     * GET /resumes
+     */
+    async list(): Promise<ResumeGenerationRequest[]> {
+        return request<ResumeGenerationRequest[]>('/resumes');
+    },
+
+    /**
      * Trigger a new resume generation
      * POST /resumes
      * Uses idempotency key to prevent duplicate generations
@@ -325,13 +328,14 @@ export const resumeApi = {
         data: TriggerGenerationRequest,
         idempotencyKey: string
     ): Promise<ResumeGenerationRequest> {
-        return request<ResumeGenerationRequest>('/resumes', {
+        const result = await request<ResumeGenerationRequest>('/resumes', {
             method: 'POST',
             headers: {
                 'Idempotency-Key': idempotencyKey,
             },
             body: JSON.stringify(data),
         });
+        return result;
     },
 
     /**
@@ -358,6 +362,16 @@ export const resumeApi = {
      */
     async getSource(generationId: string): Promise<ResumeSource> {
         return request<ResumeSource>(`/resumes/${generationId}/source`);
+    },
+
+    /**
+     * Cancel an in-progress resume generation
+     * POST /resumes/{generation_id}/cancel
+     */
+    async cancel(generationId: string): Promise<ResumeGenerationRequest> {
+        return request<ResumeGenerationRequest>(`/resumes/${generationId}/cancel`, {
+            method: 'POST',
+        });
     },
 };
 

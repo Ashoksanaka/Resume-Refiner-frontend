@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { AuthProvider } from '@/lib/auth/AuthContext';
+import { ClerkProvider } from '@clerk/nextjs';
+import { ClerkAuthBridge } from '@/lib/auth/ClerkAuthBridge';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import './globals.css';
 
@@ -18,9 +19,16 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className="antialiased bg-background text-foreground">
         <ErrorBoundary>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <ClerkProvider
+            signInUrl="/sign-in"
+            signUpUrl="/sign-up"
+            signInFallbackRedirectUrl="/dashboard"
+            signUpFallbackRedirectUrl="/dashboard"
+          >
+            <ClerkAuthBridge>
+              {children}
+            </ClerkAuthBridge>
+          </ClerkProvider>
         </ErrorBoundary>
       </body>
     </html>

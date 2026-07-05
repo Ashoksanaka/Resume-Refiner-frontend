@@ -1,8 +1,42 @@
 'use client';
 
 import { ArrowRight, CheckCircle, Zap, Shield, Brain, FileText } from 'lucide-react';
+import { useAuth, UserButton } from '@clerk/nextjs';
 import { useState } from 'react';
 import Link from 'next/link';
+
+const NavAuth = () => {
+    const { isSignedIn, isLoaded } = useAuth();
+
+    if (!isLoaded) {
+        return null;
+    }
+
+    if (isSignedIn) {
+        return (
+            <>
+                <Link href="/dashboard" className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-opacity">
+                    Dashboard
+                </Link>
+                <UserButton />
+            </>
+        );
+    }
+
+    return (
+        <>
+            <Link href="/sign-in" className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-opacity">
+                Login
+            </Link>
+            <Link
+                href="/sign-up"
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-opacity"
+            >
+                Signup
+            </Link>
+        </>
+    );
+};
 
 const Page = () => {
     const [email, setEmail] = useState('');
@@ -19,15 +53,7 @@ const Page = () => {
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="text-2xl font-bold tracking-tight">ResumeTailor</div>
                     <div className="flex items-center gap-4">
-                        <Link href="/login" className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-opacity">
-                            Login
-                        </Link>
-                        <Link
-                            href="/signup"
-                            className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-opacity"
-                        >
-                            Signup
-                        </Link>
+                        <NavAuth />
                     </div>
                 </div>
             </nav>
@@ -45,7 +71,7 @@ const Page = () => {
 
                     <div className="flex justify-center mb-16">
                         <Link
-                            href="/signup"
+                            href="/sign-up"
                             className="relative px-8 py-3 bg-background text-white font-semibold rounded-full border-2 border-purple-500 hover:border-purple-400 transition-all duration-300 hover:shadow-[0_0_20px_10px_rgba(168,85,247,0.6)] active:scale-95 active:shadow-[0_0_10px_5px_rgba(168,85,247,0.4)] group flex items-center justify-center gap-2"
                         >
                             <span className="flex items-center gap-2">
@@ -240,7 +266,7 @@ const Page = () => {
                             onChange={(e) => setEmail(e.target.value)}
                             className="px-6 py-3 rounded-full bg-primary-foreground text-foreground placeholder:text-muted-foreground flex-1 sm:flex-none sm:min-w-80 focus:outline-none"
                         />
-                        <Link href="/signup" className="px-8 py-3 bg-background text-primary font-semibold rounded-full hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                        <Link href="/sign-up" className="px-8 py-3 bg-background text-primary font-semibold rounded-full hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
                             Get Started Free <ArrowRight size={18} />
                         </Link>
                     </div>
