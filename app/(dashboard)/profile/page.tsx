@@ -735,28 +735,28 @@ export default function ProfilePage() {
                     onCancel={() => cancelSectionEdit('personalInfo')}
                 >
                     <ProfileSectionFieldset isEditing={isSectionEditing('personalInfo')} className={styles.form}>
-                        <Input
-                            label="Full Name"
-                            value={profile.personalInfo.full_name}
-                            onChange={(e) => updatePersonalInfo('full_name', e.target.value)}
-                            placeholder="John Doe"
-                            required
+                            <Input
+                                label="Full Name"
+                                value={profile.personalInfo.full_name}
+                                onChange={(e) => updatePersonalInfo('full_name', e.target.value)}
+                                placeholder="John Doe"
+                                required
                             error={fieldErrors.full_name}
-                        />
-                        <Input
-                            label="Email"
-                            type="email"
-                            value={profile.personalInfo.email}
-                            placeholder="john@example.com"
-                            required
+                            />
+                            <Input
+                                label="Email"
+                                type="email"
+                                value={profile.personalInfo.email}
+                                placeholder="john@example.com"
+                                required
                             disabled
                             readOnly
                             helperText="Email is managed by your account and cannot be changed here."
-                        />
-                        <Input
-                            label="Phone Number"
-                            type="tel"
-                            value={profile.personalInfo.phone_number || ''}
+                            />
+                            <Input
+                                label="Phone Number"
+                                type="tel"
+                                value={profile.personalInfo.phone_number || ''}
                             onChange={(e) =>
                                 updatePersonalInfo('phone_number', sanitizePhoneInput(e.target.value))
                             }
@@ -766,19 +766,19 @@ export default function ProfilePage() {
                             error={fieldErrors.phone_number}
                         />
                         <LocationPicker
-                            value={profile.personalInfo.location || ''}
+                                value={profile.personalInfo.location || ''}
                             onChange={(location) => updatePersonalInfo('location', location)}
                             required
                             error={fieldErrors.location}
                             disabled={!isSectionEditing('personalInfo')}
-                        />
-                        <Input
-                            label="Portfolio URL"
-                            type="url"
-                            value={profile.personalInfo.portfolio_url || ''}
-                            onChange={(e) => updatePersonalInfo('portfolio_url', e.target.value)}
-                            placeholder="https://yourwebsite.com"
-                        />
+                            />
+                            <Input
+                                label="Portfolio URL"
+                                type="url"
+                                value={profile.personalInfo.portfolio_url || ''}
+                                onChange={(e) => updatePersonalInfo('portfolio_url', e.target.value)}
+                                placeholder="https://yourwebsite.com"
+                            />
                     </ProfileSectionFieldset>
                 </ProfileSectionCard>
 
@@ -794,22 +794,22 @@ export default function ProfilePage() {
                     onCancel={() => cancelSectionEdit('summary')}
                 >
                     <ProfileSectionFieldset isEditing={isSectionEditing('summary')} className={styles.form}>
-                        <Textarea
-                            label="Summary"
-                            value={profile.summary}
+                            <Textarea
+                                label="Summary"
+                                value={profile.summary}
                             onChange={(e) => {
                                 setProfile((prev) => ({ ...prev, summary: e.target.value }));
                                 if (summaryError) {
                                     setSummaryError(undefined);
                                 }
                             }}
-                            placeholder="Write a compelling summary..."
-                            maxLength={2500}
-                            charCount
-                            rows={8}
+                                placeholder="Write a compelling summary..."
+                                maxLength={2500}
+                                charCount
+                                rows={8}
                             required
                             error={summaryError}
-                        />
+                            />
                     </ProfileSectionFieldset>
                 </ProfileSectionCard>
 
@@ -825,10 +825,10 @@ export default function ProfilePage() {
                     onCancel={() => cancelSectionEdit('experience')}
                 >
                     <ProfileSectionFieldset isEditing={isSectionEditing('experience')} className={styles.form}>
-                        {profile.experience.map((exp, index) => (
-                            <div key={index} className={styles.entryCard}>
-                                <div className={styles.entryHeader}>
-                                    <span className={styles.entryTitle}>Experience {index + 1}</span>
+                            {profile.experience.map((exp, index) => (
+                                <div key={index} className={styles.entryCard}>
+                                    <div className={styles.entryHeader}>
+                                        <span className={styles.entryTitle}>Experience {index + 1}</span>
                                     {isSectionEditing('experience') && (
                                         <button
                                             type="button"
@@ -838,27 +838,27 @@ export default function ProfilePage() {
                                             Remove
                                         </button>
                                     )}
-                                </div>
-                                <div className={styles.entryFields}>
-                                    <Input
-                                        label="Company"
-                                        value={exp.company}
-                                        onChange={(e) => updateExperience(index, 'company', e.target.value)}
-                                        placeholder="Company Name"
-                                        required
-                                        error={experienceFieldErrors[index]?.company}
-                                    />
-                                    <Input
-                                        label="Title"
-                                        value={exp.title}
-                                        onChange={(e) => updateExperience(index, 'title', e.target.value)}
-                                        placeholder="Job Title"
-                                        required
-                                        error={experienceFieldErrors[index]?.title}
-                                    />
-                                    <div className={styles.dateRow}>
+                                    </div>
+                                    <div className={styles.entryFields}>
                                         <Input
-                                            label="Start Date"
+                                            label="Company"
+                                            value={exp.company}
+                                            onChange={(e) => updateExperience(index, 'company', e.target.value)}
+                                            placeholder="Company Name"
+                                            required
+                                        error={experienceFieldErrors[index]?.company}
+                                        />
+                                        <Input
+                                            label="Title"
+                                            value={exp.title}
+                                            onChange={(e) => updateExperience(index, 'title', e.target.value)}
+                                            placeholder="Job Title"
+                                            required
+                                        error={experienceFieldErrors[index]?.title}
+                                        />
+                                        <div className={styles.dateRow}>
+                                            <Input
+                                                label="Start Date"
                                             type="month"
                                             value={dateToMonthValue(exp.start_date)}
                                             onChange={(e) =>
@@ -869,11 +869,11 @@ export default function ProfilePage() {
                                                 )
                                             }
                                             helperText="Month and year only"
-                                            required
+                                                required
                                             error={experienceFieldErrors[index]?.start_date}
-                                        />
-                                        <Input
-                                            label="End Date"
+                                            />
+                                            <Input
+                                                label="End Date"
                                             type="month"
                                             value={dateToMonthValue(exp.end_date || '')}
                                             onChange={(e) =>
@@ -889,8 +889,8 @@ export default function ProfilePage() {
                                             disabled={isCurrentlyWorking(exp)}
                                             required={!isCurrentlyWorking(exp)}
                                             error={experienceFieldErrors[index]?.end_date}
-                                        />
-                                    </div>
+                                            />
+                                        </div>
                                     <label className={styles.checkboxRow}>
                                         <input
                                             type="checkbox"
@@ -905,25 +905,25 @@ export default function ProfilePage() {
                                         />
                                         <span>I currently work here</span>
                                     </label>
-                                    <Textarea
-                                        label="Description"
-                                        value={exp.description || ''}
+                                        <Textarea
+                                            label="Description"
+                                            value={exp.description || ''}
                                         onChange={(e) =>
                                             updateExperience(index, 'description', e.target.value)
                                         }
-                                        placeholder="Describe your responsibilities..."
-                                        rows={4}
+                                            placeholder="Describe your responsibilities..."
+                                            rows={4}
                                         required
                                         error={experienceFieldErrors[index]?.description}
-                                    />
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
                     </ProfileSectionFieldset>
                     {isSectionEditing('experience') && (
-                        <Button variant="secondary" onClick={addExperience}>
-                            + Add Experience
-                        </Button>
+                            <Button variant="secondary" onClick={addExperience}>
+                                + Add Experience
+                            </Button>
                     )}
                 </ProfileSectionCard>
 
@@ -939,10 +939,10 @@ export default function ProfilePage() {
                     onCancel={() => cancelSectionEdit('education')}
                 >
                     <ProfileSectionFieldset isEditing={isSectionEditing('education')} className={styles.form}>
-                        {profile.education.map((edu, index) => (
-                            <div key={index} className={styles.entryCard}>
-                                <div className={styles.entryHeader}>
-                                    <span className={styles.entryTitle}>Education {index + 1}</span>
+                            {profile.education.map((edu, index) => (
+                                <div key={index} className={styles.entryCard}>
+                                    <div className={styles.entryHeader}>
+                                        <span className={styles.entryTitle}>Education {index + 1}</span>
                                     {isSectionEditing('education') && (
                                         <button
                                             type="button"
@@ -952,14 +952,14 @@ export default function ProfilePage() {
                                             Remove
                                         </button>
                                     )}
-                                </div>
-                                <div className={styles.entryFields}>
-                                    <Input
+                                    </div>
+                                    <div className={styles.entryFields}>
+                                        <Input
                                         label="Institute Name"
-                                        value={edu.institution}
-                                        onChange={(e) => updateEducation(index, 'institution', e.target.value)}
+                                            value={edu.institution}
+                                            onChange={(e) => updateEducation(index, 'institution', e.target.value)}
                                         placeholder="University or college name"
-                                        required
+                                            required
                                         error={educationFieldErrors[index]?.institution}
                                     />
                                     <Select
@@ -1076,9 +1076,9 @@ export default function ProfilePage() {
                                             />
                                         )}
                                     </fieldset>
-                                    <div className={styles.dateRow}>
-                                        <Input
-                                            label="Start Date"
+                                        <div className={styles.dateRow}>
+                                            <Input
+                                                label="Start Date"
                                             type="month"
                                             value={dateToMonthValue(edu.start_date)}
                                             onChange={(e) =>
@@ -1089,11 +1089,11 @@ export default function ProfilePage() {
                                                 )
                                             }
                                             helperText="Month and year only"
-                                            required
+                                                required
                                             error={educationFieldErrors[index]?.start_date}
-                                        />
-                                        <Input
-                                            label="End Date"
+                                            />
+                                            <Input
+                                                label="End Date"
                                             type="month"
                                             value={dateToMonthValue(edu.end_date || '')}
                                             onChange={(e) =>
@@ -1109,8 +1109,8 @@ export default function ProfilePage() {
                                             disabled={isCurrentlyStudying(edu)}
                                             required={!isCurrentlyStudying(edu)}
                                             error={educationFieldErrors[index]?.end_date}
-                                        />
-                                    </div>
+                                            />
+                                        </div>
                                     <label className={styles.checkboxRow}>
                                         <input
                                             type="checkbox"
@@ -1125,14 +1125,14 @@ export default function ProfilePage() {
                                         />
                                         <span>I currently study here</span>
                                     </label>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
                     </ProfileSectionFieldset>
                     {isSectionEditing('education') && (
-                        <Button variant="secondary" onClick={addEducation}>
-                            + Add Education
-                        </Button>
+                            <Button variant="secondary" onClick={addEducation}>
+                                + Add Education
+                            </Button>
                     )}
                 </ProfileSectionCard>
 
@@ -1167,10 +1167,10 @@ export default function ProfilePage() {
                                 </Button>
                             </div>
                         )}
-                        <div className={styles.skillsList}>
-                            {profile.skills.map((skill, index) => (
-                                <span key={index} className={styles.skillTag}>
-                                    {skill}
+                            <div className={styles.skillsList}>
+                                {profile.skills.map((skill, index) => (
+                                    <span key={index} className={styles.skillTag}>
+                                        {skill}
                                     {isSectionEditing('skills') && (
                                         <button
                                             type="button"
@@ -1180,9 +1180,9 @@ export default function ProfilePage() {
                                             ×
                                         </button>
                                     )}
-                                </span>
-                            ))}
-                        </div>
+                                    </span>
+                                ))}
+                            </div>
                     </ProfileSectionFieldset>
                 </ProfileSectionCard>
 
@@ -1205,7 +1205,7 @@ export default function ProfilePage() {
                     SECTION_IDS={SECTION_IDS}
                 />
 
-            </div>
+                                    </div>
 
             <ConfirmDialog
                 open={sectionDeleteTarget !== null}
