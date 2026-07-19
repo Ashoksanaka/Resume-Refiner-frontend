@@ -4,11 +4,12 @@ import type { NextConfig } from "next";
  * BACKEND_URL is server-only (never NEXT_PUBLIC_*). It must be the deployed Django
  * origin with no trailing slash.
  *
- * Production on Vercel with an HTTP-only AWS VM:
- *   BACKEND_URL=http://<AWS_ELASTIC_IP>
+ * Production on Vercel with an HTTP-only AWS VM (Nginx on host port 8080):
+ *   BACKEND_URL=http://<AWS_ELASTIC_IP>:8080
  *   ALLOW_INSECURE_BACKEND=true
  *
- * Prefer HTTPS once TLS is terminated on the VM / load balancer.
+ * Browser calls stay on HTTPS (same-origin /api/v1 and /media); Next.js rewrites
+ * proxy server-side to BACKEND_URL. Prefer HTTPS once TLS is on the VM / ALB.
  */
 function resolveBackendUrl(): string {
   const url = process.env.BACKEND_URL?.replace(/\/$/, "");
@@ -26,7 +27,7 @@ function resolveBackendUrl(): string {
   if (isVercel && (!url || url.includes("localhost"))) {
     throw new Error(
       "BACKEND_URL must be set to your production Django URL on Vercel " +
-        "(e.g. http://<AWS_ELASTIC_IP> or https://api.example.com)."
+        "(e.g. http://<AWS_ELASTIC_IP>:8080 or https://api.example.com)."
     );
   }
 
@@ -64,6 +65,10 @@ const nextConfig: NextConfig = {
       {
         source: "/api/v1/:path*",
         destination: `${backendUrl}/api/v1/:path*`,
+      },
+      {
+        source: "/media/:path*",
+        destination: `${backendUrl}/media/:path*`,
       },
     ];
   },

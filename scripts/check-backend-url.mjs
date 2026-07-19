@@ -17,7 +17,7 @@ function resolveBackendUrl(env) {
   if (isVercel && (!url || url.includes("localhost"))) {
     throw new Error(
       "BACKEND_URL must be set to your production Django URL on Vercel " +
-        "(e.g. http://<AWS_ELASTIC_IP> or https://api.example.com)."
+        "(e.g. http://<AWS_ELASTIC_IP>:8080 or https://api.example.com)."
     );
   }
 

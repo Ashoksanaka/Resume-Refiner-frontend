@@ -56,7 +56,7 @@ npm run lint
 
 ## Deploying to Vercel
 
-The frontend repo is designed for direct Vercel deployment. API requests use a same-origin proxy: the browser calls `/api/v1/*` on the Vercel domain, and Next.js rewrites those requests to your Django backend via `BACKEND_URL`.
+The frontend repo is designed for direct Vercel deployment. API and media requests use a same-origin proxy: the browser calls `/api/v1/*` and `/media/*` on the Vercel domain (HTTPS), and Next.js rewrites those requests server-side to your Django backend via `BACKEND_URL`.
 
 ### 1. Connect the repository
 
@@ -80,10 +80,10 @@ Set these in Vercel for **Production** and **Preview** environments:
 | `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL` | `/dashboard` |
 | `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL` | `/dashboard` |
 | `NEXT_PUBLIC_API_URL` | `/api/v1` |
-| `BACKEND_URL` | `http://<AWS_ELASTIC_IP>` (no trailing slash) while the VM is HTTP-only |
+| `BACKEND_URL` | `http://<AWS_ELASTIC_IP>:8080` (no trailing slash) while the VM is HTTP-only |
 | `ALLOW_INSECURE_BACKEND` | `true` (required when `BACKEND_URL` is `http://` on Vercel) |
 
-`BACKEND_URL` and `ALLOW_INSECURE_BACKEND` are server-only. The browser always calls same-origin `/api/v1/*` over HTTPS, so mixed content is avoided. Next.js then proxies server-side to the AWS VM.
+`BACKEND_URL` and `ALLOW_INSECURE_BACKEND` are server-only. The browser always calls same-origin `/api/v1/*` and `/media/*` over HTTPS, so mixed content is avoided. Next.js then proxies server-side to the AWS VM (host port **8080** by default).
 
 `BACKEND_URL` is required on Vercel. The build fails if it is missing, still points to `localhost`, or uses HTTP without `ALLOW_INSECURE_BACKEND=true`.
 
