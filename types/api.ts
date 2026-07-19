@@ -320,7 +320,7 @@ export interface ResumeGenerationRequest {
 
 export interface TriggerGenerationRequest {
   job_description_id: string;
-  template_id?: string; // Optional, defaults to 'tccv' on backend
+  template_id?: string; // Optional, defaults to 'main' on backend
   sections: string[];
 }
 

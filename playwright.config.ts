@@ -8,7 +8,15 @@ export default defineConfig({
     workers: process.env.CI ? 1 : undefined,
     reporter: 'html',
     use: {
-        baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+        baseURL: (() => {
+            const baseURL = process.env.PLAYWRIGHT_BASE_URL;
+            if (!baseURL) {
+                throw new Error(
+                    'PLAYWRIGHT_BASE_URL must be set (see .env.example).'
+                );
+            }
+            return baseURL;
+        })(),
         trace: 'on-first-retry',
     },
     projects: [

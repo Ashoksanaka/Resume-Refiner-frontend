@@ -80,11 +80,16 @@ Set these in Vercel for **Production** and **Preview** environments:
 | `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL` | `/dashboard` |
 | `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL` | `/dashboard` |
 | `NEXT_PUBLIC_API_URL` | `/api/v1` |
-| `BACKEND_URL` | `https://<your-backend-host>` (no trailing slash) |
+| `BACKEND_URL` | `http://<AWS_ELASTIC_IP>` (no trailing slash) while the VM is HTTP-only |
+| `ALLOW_INSECURE_BACKEND` | `true` (required when `BACKEND_URL` is `http://` on Vercel) |
 
-`BACKEND_URL` is server-only and required on Vercel. The build fails if it is missing or still points to `localhost`.
+`BACKEND_URL` and `ALLOW_INSECURE_BACKEND` are server-only. The browser always calls same-origin `/api/v1/*` over HTTPS, so mixed content is avoided. Next.js then proxies server-side to the AWS VM.
 
-**Deployment order:** deploy the Django backend first, then set `BACKEND_URL` in Vercel and redeploy the frontend.
+`BACKEND_URL` is required on Vercel. The build fails if it is missing, still points to `localhost`, or uses HTTP without `ALLOW_INSECURE_BACKEND=true`.
+
+**Security note:** Until the VM terminates TLS, the Vercel → AWS hop is plaintext (JWTs and resume data). Prefer `https://api.yourdomain.com` and drop `ALLOW_INSECURE_BACKEND` as soon as certificates are available.
+
+**Deployment order:** deploy the Django backend on the AWS VM first, then set Vercel env vars and redeploy the frontend.
 
 ### 3. Clerk production configuration
 
@@ -93,8 +98,8 @@ After Vercel assigns a domain (e.g. `your-app.vercel.app` or a custom domain):
 1. Switch from test keys (`pk_test_` / `sk_test_`) to production keys in Vercel env vars.
 2. In Clerk Dashboard → **Domains**, add your Vercel production and preview domains.
 3. Ensure redirect URLs allow `/sign-in`, `/sign-up`, and post-auth `/dashboard`.
-4. Point the Clerk webhook to your **backend** (not the frontend):
-   `https://<your-backend-host>/api/v1/auth/clerk/webhook`
+4. Point the Clerk webhook at the **Vercel HTTPS proxy** (not the raw HTTP Elastic IP):
+   `https://your-vercel-domain.com/api/v1/auth/clerk/webhook`
    Subscribe to `user.created`, `user.updated`, and `user.deleted`.
 
 ### 4. Backend coordination
@@ -104,6 +109,8 @@ On your deployed Django backend, set:
 ```bash
 FRONTEND_URL=https://your-vercel-domain.com
 CORS_ALLOWED_ORIGINS=https://your-vercel-domain.com
+CSRF_TRUSTED_ORIGINS=https://your-vercel-domain.com
+ALLOWED_HOSTS=backend,localhost,127.0.0.1
 ```
 
 CORS is secondary while using the proxy pattern, but set both for tooling and any future direct API access.
@@ -122,4 +129,21 @@ Configure a Clerk webhook pointing to `http://localhost:8000/api/v1/auth/clerk/w
 
 ## Docker
 
-For self-hosted deployment, use the included `Dockerfile` and `docker-compose.yml`. Docker builds use `output: "standalone"`; Vercel ignores this setting safely.
+For self-hosted / local containers, use the included `Dockerfile` and `docker-compose.yml`. Docker builds use `output: "standalone"`; Vercel ignores this setting safely.
+
+Frontend and backend share the Docker network `resume-refiner-net` (external). Create it once before either stack:
+
+```bash
+../Resume-Refiner-Backend/scripts/ensure-shared-network.sh
+# or: docker network create resume-refiner-net
+```
+
+```bash
+# Backend (from Resume-Refiner-Backend) — requires valid Supabase DIRECT_URL in .env
+docker compose up -d
+
+# Frontend (from Resume-Refiner-frontend)
+docker compose up -d --build
+```
+
+In Docker, the frontend proxies to `http://backend:8000` on that shared network.

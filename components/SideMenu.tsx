@@ -43,7 +43,7 @@ import {
     LayoutDashboard,
 } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
-import { profileApi } from '@/services/apiClient';
+import { profileApi, ApiClientError } from '@/services/apiClient';
 import { Profile } from '@/types/api';
 
 interface NavItem {
@@ -73,7 +73,10 @@ export const SideMenu: React.FC = () => {
                 const data = await profileApi.get();
                 setProfile(migrateProfile(data));
             } catch (err) {
-                console.error('Failed to fetch profile for badges:', err);
+                // 404 is expected until the user creates a profile
+                if (!(err instanceof ApiClientError && err.status === 404)) {
+                    console.error('Failed to fetch profile for badges:', err);
+                }
             }
         };
         if (isLoaded && isSignedIn) {

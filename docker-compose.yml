@@ -1,3 +1,7 @@
+# First ensure the shared network exists:
+#   ../Resume-Refiner-Backend/scripts/ensure-shared-network.sh
+#   (or: docker network create resume-refiner-net)
+
 services:
   frontend:
     build:
@@ -12,12 +16,18 @@ services:
         NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL: ${NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL:-/dashboard}
         NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL: ${NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL:-/dashboard}
         NEXT_PUBLIC_API_URL: /api/v1
-        BACKEND_URL: http://backend:8000
+        # Docker Compose must NOT reuse host BACKEND_URL (often http://localhost:8000
+        # for `npm run dev`). Inside the container, localhost is the frontend itself.
+        BACKEND_URL: ${DOCKER_BACKEND_URL:-http://backend:8000}
     container_name: resumeai-frontend
     env_file:
-      - .env.local
+      - path: .env.local
+        required: false
+      - path: .env
+        required: false
     environment:
-      BACKEND_URL: http://backend:8000
+      # Explicit override so env_file BACKEND_URL=localhost cannot poison the proxy
+      BACKEND_URL: ${DOCKER_BACKEND_URL:-http://backend:8000}
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
       NEXT_PUBLIC_CLERK_SIGN_IN_URL: ${NEXT_PUBLIC_CLERK_SIGN_IN_URL:-/sign-in}
       NEXT_PUBLIC_CLERK_SIGN_UP_URL: ${NEXT_PUBLIC_CLERK_SIGN_UP_URL:-/sign-up}
@@ -28,9 +38,11 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - backend
+      - resume_refiner
+    restart: unless-stopped
 
+# Shared with Resume-Refiner-Backend. Create once via ensure-shared-network.sh
 networks:
-  backend:
+  resume_refiner:
+    name: resume-refiner-net
     external: true
-    name: resume-refiner-backend_default

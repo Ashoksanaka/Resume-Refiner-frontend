@@ -19,9 +19,14 @@ jest.mock('@/services/apiClient', () => ({
     },
     ApiClientError: class ApiClientError extends Error {
         status: number;
-        constructor(message: string, status: number) {
-            super(message);
+        errorCode: string;
+        constructor(status: number, apiError: { message: string; error_code: string }) {
+            super(apiError.message);
             this.status = status;
+            this.errorCode = apiError.error_code;
+        }
+        isTTLExpired() {
+            return this.errorCode === 'TTL_EXPIRED';
         }
     },
 }));
@@ -32,7 +37,10 @@ describe('Dashboard Page', () => {
     });
 
     it('shows welcome state for new users', async () => {
-        (profileApi.get as jest.Mock).mockRejectedValue(new ApiClientError('Not found', 404));
+        (profileApi.get as jest.Mock).mockRejectedValue(new ApiClientError(404, {
+            error_code: 'NOT_FOUND',
+            message: 'Not found',
+        }));
         (resumeApi.list as jest.Mock).mockResolvedValue([]);
         (profileApi.getHistory as jest.Mock).mockResolvedValue([]);
 
@@ -70,5 +78,6 @@ describe('Dashboard Page', () => {
         expect(screen.getByText('Recent Profile Changes')).toBeInTheDocument();
         expect(screen.getByText('Updated Personal Info')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Download LaTeX' })).not.toBeInTheDocument();
     });
 });

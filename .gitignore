@@ -12,10 +12,13 @@
 
 # testing
 /coverage
+playwright-report/
+test-results/
 
 # next.js
 /.next/
 /out/
+.swc/
 
 # production
 /build
@@ -23,6 +26,8 @@
 # misc
 .DS_Store
 *.pem
+semgrep.json
+/env/
 
 # debug
 npm-debug.log*
@@ -35,8 +40,7 @@ yarn-error.log*
 
 # environment (secrets — use .env.example as template)
 .env
-.env.local
-.env*.local
+.env.*
 !.env.example
 
 # typescript

@@ -1,0 +1,46 @@
+# Dependencies and build output
+node_modules
+.next
+out
+dist
+coverage
+playwright-report
+test-results
+*.tsbuildinfo
+.swc/
+
+# Accidental / local scan artifacts
+env/
+semgrep.json
+
+# Env / secrets — bake via build args or runtime env, never COPY into image
+.env
+.env.*
+!.env.example
+
+# Git / IDE / docs
+.git
+.gitignore
+.cursor
+.vscode
+.idea
+*.md
+!README.md
+
+# Tests (not needed in production image)
+tests
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+jest.config.*
+jest.setup.*
+playwright.config.*
+scripts/check-backend-url.mjs
+
+# Misc
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+npm-debug.log*
